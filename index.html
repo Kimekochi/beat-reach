@@ -23,7 +23,7 @@ html,body{height:100%;margin:0;background:var(--ink);color:var(--fg);font-family
   background:var(--panel);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-right:1px solid var(--line);
   padding:26px 22px 22px;display:flex;flex-direction:column;gap:16px}
 .logo{display:flex;align-items:center;gap:14px}
-.ring{flex:none;width:26px;height:26px;border-radius:50%;background:var(--pink);border:3px solid #fff;outline:2px solid var(--pink);outline-offset:5px}
+.mark{flex:none;width:34px;height:34px;display:block}
 h1{font-family:var(--display);font-weight:800;font-size:25px;letter-spacing:-.01em;margin:0}
 .tag{color:var(--muted);margin:10px 0 0;line-height:1.5}
 section{display:flex;flex-direction:column;gap:10px;padding-top:16px;border-top:1px solid var(--line)}
@@ -75,7 +75,7 @@ kbd{font-family:var(--mono);font-size:11.5px;border:1px solid var(--line);border
 .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;text-align:center}
 .stats div{background:var(--well);border-radius:12px;padding:10px 4px}
 .stats b{display:block;font-family:var(--mono);font-size:20px;font-variant-numeric:tabular-nums}
-.stats span{font-size:11.5px;color:var(--muted);letter-spacing:.05em}
+.stats span{font-size:10.5px;color:var(--muted);letter-spacing:.04em}
 .calib{background:var(--well);border-radius:12px;padding:12px 14px;line-height:1.5;color:var(--muted);display:flex;gap:10px;align-items:center;justify-content:space-between}
 .calib button{flex:none}
 #toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:var(--panel-solid);border:1px solid var(--line);border-radius:12px;padding:11px 16px;max-width:calc(100% - 32px);box-sizing:border-box;opacity:0;transition:opacity .2s;pointer-events:none}
@@ -89,8 +89,8 @@ kbd{font-family:var(--mono);font-size:11.5px;border:1px solid var(--line);border
 
 <div id="menu">
   <header>
-    <div class="logo"><span class="ring" aria-hidden="true"></span><h1>Beat Reach</h1></div>
-    <p class="tag">Ритм-игра для вебки. Круги появляются в такт музыке, касайся их рукой, когда внешнее кольцо сожмётся до края.</p>
+    <div class="logo"><svg class="mark" viewBox="0 0 34 34" aria-hidden="true"><path d="M17 4 30 17 17 30 4 17Z" fill="none" stroke="#f4effc" stroke-width="2.5" stroke-linejoin="round"/><path d="M17 10 17 24 10 17Z" fill="#ff4fa3"/><path d="M17 10 24 17 17 24Z" fill="#47e1ff"/><path d="M3 9 7 13M31 9 27 13M3 25 7 21M31 25 27 21" stroke="#f4effc" stroke-width="2.5" stroke-linecap="round"/></svg><h1>Beat Reach</h1></div>
+    <p class="tag">Неоновый тир под твою музыку. Мишени появляются в такт, стреляй пальцем, когда уголки прицела сомкнутся на мишени.</p>
   </header>
 
   <section>
@@ -137,7 +137,7 @@ kbd{font-family:var(--mono);font-size:11.5px;border:1px solid var(--line);border
     <label class="field"><span>Чем касаться</span>
       <select id="point"><option value="gun">Пистолетом: целься и стреляй</option><option value="palm">Касанием центра ладони</option><option value="tip">Касанием кончика указательного</option></select></label>
     <p class="hint" id="gunHint">Сложи пистолет: указательный смотрит вперёд, большой палец вверх. Резко опусти большой палец к указательному, это выстрел. Мышью стреляй кликом.</p>
-    <label class="check"><input type="checkbox" id="strict"><span>Бить только своей рукой<small>Левой розовые круги, правой голубые</small></span></label>
+    <label class="check"><input type="checkbox" id="strict"><span>Бить только своей рукой<small>Левой розовые мишени, правой голубые</small></span></label>
     <label class="check"><input type="checkbox" id="swap"><span>Поменять руки местами<small>Игра определяет руки сама, когда видит обе. Включи, если над левой рукой всё равно «П»</small></span></label>
     <label class="check"><input type="checkbox" id="mirror"><span>Зеркальное видео<small>Выключи, если ведёшь руку вправо, а курсор уходит влево</small></span></label>
     <label class="range" id="trigWrap"><span>Курок срабатывает <i id="trigV"></i></span><input id="trig" type="range" min="20" max="60" value="38"></label>
@@ -145,7 +145,8 @@ kbd{font-family:var(--mono);font-size:11.5px;border:1px solid var(--line);border
     <label class="range"><span>Задержка камеры <i id="latV"></i></span><input id="lat" type="range" min="0" max="250" step="5" value="60"></label>
     <button id="calib" class="ghost">Откалибровать задержку по метроному</button>
     <label class="range"><span>Яркость видео <i id="dimV"></i></span><input id="dim" type="range" min="0" max="100" value="40"></label>
-    <label class="range"><span>Громкость <i id="volV"></i></span><input id="vol" type="range" min="0" max="100" value="80"></label>
+    <label class="range"><span>Громкость музыки <i id="volV"></i></span><input id="vol" type="range" min="0" max="100" value="80"></label>
+    <label class="range"><span>Громкость эффектов <i id="sfxV"></i></span><input id="sfx" type="range" min="0" max="100" value="70"></label>
   </section>
 
   <button id="start" class="start" disabled>Играть</button>
@@ -170,9 +171,9 @@ kbd{font-family:var(--mono);font-size:11.5px;border:1px solid var(--line);border
       <div><div class="res-score" id="rScore">0</div><div class="res-acc" id="rAcc"></div></div>
     </div>
     <div class="stats">
-      <div><b id="r300" style="color:var(--cyan)">0</b><span>300</span></div>
-      <div><b id="r100" style="color:#7dffb0">0</b><span>100</span></div>
-      <div><b id="r50" style="color:var(--amber)">0</b><span>50</span></div>
+      <div><b id="r300" style="color:var(--fg)">0</b><span>ИДЕАЛЬНО</span></div>
+      <div><b id="r100" style="color:#7dffb0">0</b><span>ХОРОШО</span></div>
+      <div><b id="r50" style="color:var(--amber)">0</b><span>ЕСТЬ</span></div>
       <div><b id="rMiss" style="color:var(--red)">0</b><span>МИМО</span></div>
     </div>
     <div class="calib" id="rCalib" hidden><span id="rCalibText"></span><button id="rApply">Применить</button></div>
@@ -194,8 +195,8 @@ function resize(){ const d = Math.min(2, devicePixelRatio || 1); W = innerWidth;
 addEventListener('resize', resize); resize();
 
 /* ---------- settings ---------- */
-const S = { bpm:120, offset:0, diff:'normal', seed:'neon', point:'gun', field:80, lat:60, dim:40, vol:80, trig:38, strict:true, swap:false, cross:'some', mirror:true };
-try { const s = JSON.parse(localStorage.getItem('beatreach') || '{}'); for (const k of ['diff','seed','point','field','lat','dim','vol','trig','strict','cross','mirror']) if (k in s) S[k] = s[k]; } catch {}
+const S = { bpm:120, offset:0, diff:'normal', seed:'neon', point:'gun', field:80, lat:60, dim:40, vol:80, trig:38, strict:true, swap:false, cross:'some', mirror:true, sfx:70 };
+try { const s = JSON.parse(localStorage.getItem('beatreach') || '{}'); for (const k of ['diff','seed','point','field','lat','dim','vol','trig','strict','cross','mirror','sfx']) if (k in s) S[k] = s[k]; } catch {}
 function save(){ try { const { bpm, offset, ...rest } = S; localStorage.setItem('beatreach', JSON.stringify(rest)); } catch {} }
 
 let toastT;
@@ -203,9 +204,35 @@ function toast(msg){ const t = $('#toast'); t.textContent = msg; t.classList.add
 const fmtTime = s => `${Math.floor(s/60)}:${String(Math.floor(s%60)).padStart(2,'0')}`;
 
 /* ---------- audio ---------- */
-let actx = null, master = null;
+let actx = null, master = null, sfx = null, noiseBuf = null;
+/* ---------- sound effects: synthesized, on their own volume bus ---------- */
+function blip(t, type, f0, f1, peak, dec){
+  const o = actx.createOscillator(), gn = actx.createGain(); o.type = type; o.frequency.setValueAtTime(f0, t);
+  if (f1) o.frequency.exponentialRampToValueAtTime(f1, t + dec);
+  gn.gain.setValueAtTime(.0001, t); gn.gain.exponentialRampToValueAtTime(peak, t + .003); gn.gain.exponentialRampToValueAtTime(.0001, t + dec);
+  o.connect(gn).connect(sfx); o.start(t); o.stop(t + dec + .02);
+}
+function hiss(t, type, freq, q, peak, dec){
+  if (!noiseBuf){ noiseBuf = actx.createBuffer(1, actx.sampleRate/2, actx.sampleRate); const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random()*2 - 1; }
+  const s = actx.createBufferSource(), f = actx.createBiquadFilter(), gn = actx.createGain();
+  s.buffer = noiseBuf; f.type = type; f.frequency.value = freq; f.Q.value = q;
+  gn.gain.setValueAtTime(peak, t); gn.gain.exponentialRampToValueAtTime(.0001, t + dec);
+  s.connect(f).connect(gn).connect(sfx); s.start(t, Math.random()*.3); s.stop(t + dec + .02);
+}
+const SFX = {
+  shot(){ const t = actx.currentTime; hiss(t, 'bandpass', 1400, 1.2, .22, .06); blip(t, 'sine', 180, 60, .12, .07); },
+  // glassy ping; sharper and brighter the more precise the hit, a whole tone lower for the left hand
+  hit(v, side){ const t = actx.currentTime, k = side === 'L' ? 1 : 1.125;
+    if (v === 300){ blip(t, 'sine', 1568*k, 0, .16, .22); blip(t, 'sine', 2352*k, 0, .06, .14); blip(t + .045, 'sine', 2093*k, 0, .08, .18); hiss(t, 'highpass', 6000, .7, .08, .03); }
+    else if (v === 100){ blip(t, 'triangle', 1175*k, 0, .14, .14); hiss(t, 'highpass', 5000, .7, .05, .025); }
+    else blip(t, 'sine', 587*k, 440*k, .14, .09); },
+  miss(){ blip(actx.currentTime, 'triangle', 140, 70, .1, .16); },
+  tick(){ blip(actx.currentTime, 'sine', 2637, 0, .06, .04); },
+  end(side){ const t = actx.currentTime, k = side === 'L' ? 1 : 1.125; blip(t, 'sine', 1319*k, 0, .1, .12); blip(t + .06, 'sine', 1976*k, 0, .1, .18); },
+};
 function AC(){
-  if (!actx){ actx = new (window.AudioContext || window.webkitAudioContext)(); master = actx.createGain(); master.connect(actx.destination); }
+  if (!actx){ actx = new (window.AudioContext || window.webkitAudioContext)(); master = actx.createGain(); master.connect(actx.destination); sfx = actx.createGain(); sfx.connect(actx.destination); }
+  sfx.gain.value = (S.sfx/100) ** 1.5;
   master.gain.value = (S.vol/100) ** 1.5;
   return actx;
 }
@@ -458,7 +485,7 @@ function regen(){
   MAP = generateMap(T.a, S);
   if (!MAP.length){ $('#mapInfo').textContent = 'Карта пустая. Проверь BPM и офсет.'; return; }
   const span = MAP.at(-1).t - MAP[0].t || 1;
-  $('#mapInfo').innerHTML = `<b>${MAP.length}</b> кругов · <b>${(MAP.length/span).toFixed(1)}</b> в секунду · ${DIFF[S.diff].label.toLowerCase()}`;
+  $('#mapInfo').innerHTML = `<b>${MAP.length}</b> мишеней · <b>${(MAP.length/span).toFixed(1)}</b> в секунду · ${DIFF[S.diff].label.toLowerCase()}`;
 }
 async function loadBuffer(buf, name){
   T.buf = buf; T.name = name; $('#trackInfo').textContent = 'Слушаю ритм…';
@@ -504,7 +531,8 @@ async function makeDemo(){
 /* ---------- rhythm controls ---------- */
 function syncInputs(){
   $('#bpm').value = S.bpm; $('#offset').value = S.offset; $('#seed').value = S.seed; $('#point').value = S.point;
-  for (const k of ['field','lat','dim','vol','trig']) $('#'+k).value = S[k];
+  for (const k of ['field','lat','dim','vol','trig','sfx']) $('#'+k).value = S[k];
+  $('#sfxV').textContent = S.sfx + '%';
   $('#cross').value = S.cross; $('#strict').checked = S.strict; $('#swap').checked = S.swap; $('#mirror').checked = S.mirror;
   $('#trigV').textContent = S.trig < 32 ? 'туго' : S.trig > 46 ? 'легко' : 'средне';
   $('#gunHint').hidden = $('#trigWrap').hidden = S.point !== 'gun';
@@ -530,7 +558,8 @@ $('#reroll').onclick = () => { const w = ['neon','tide','orbit','ember','prism',
 $('#cross').onchange = e => { S.cross = e.target.value; save(); regen(); };
 $('#point').onchange = e => { S.point = e.target.value; save(); syncInputs(); };
 for (const k of ['strict','swap','mirror']) $('#'+k).onchange = e => { S[k] = e.target.checked; save(); if (k === 'mirror'){ labelTrust = 0; labelFlip = false; hands.clear(); } };
-for (const k of ['field','lat','dim','vol','trig']) $('#'+k).oninput = e => { S[k] = +e.target.value; save(); syncInputs(); if (k === 'vol' && master) master.gain.value = (S.vol/100) ** 1.5; };
+for (const k of ['field','lat','dim','vol','trig','sfx']) $('#'+k).oninput = e => { S[k] = +e.target.value; save(); syncInputs(); if (k === 'vol' && master) master.gain.value = (S.vol/100) ** 1.5;
+  if (k === 'sfx' && sfx){ sfx.gain.value = (S.sfx/100) ** 1.5; SFX.hit(300, 'R'); } };
 
 /* metronome preview */
 let PV = null;
@@ -581,8 +610,7 @@ const audioNow = () => actx ? actx.currentTime : 0;
 function fire(x, y, side){
   shots.push({ x, y, at: audioNow(), side });
   G.fx.push({ x, y, t: performance.now(), shot: true });
-  if (actx){ const t = actx.currentTime, o = actx.createOscillator(), gn = actx.createGain(); o.type = 'square'; o.frequency.setValueAtTime(320, t); o.frequency.exponentialRampToValueAtTime(70, t+.07);
-    gn.gain.setValueAtTime(.07, t); gn.gain.exponentialRampToValueAtTime(.0001, t+.09); o.connect(gn).connect(master); o.start(t); o.stop(t+.1); }
+  if (actx) SFX.shot();
 }
 cv.addEventListener('pointerdown', e => { if (S.point !== 'gun') return; AC(); mouse.x = e.clientX; mouse.y = e.clientY; mouse.seen = performance.now(); fire(mouse.x, mouse.y, 'any'); });
 const d3 = (a, b) => Math.hypot(a.x - b.x, a.y - b.y, (a.z || 0) - (b.z || 0));
@@ -705,22 +733,20 @@ addEventListener('keydown', e => {
 });
 document.addEventListener('visibilitychange', () => { if (document.hidden) pauseGame(); });
 
-function hitSound(){ const t = actx.currentTime, o = actx.createOscillator(), gn = actx.createGain(); o.type = 'triangle'; o.frequency.setValueAtTime(1400, t); o.frequency.exponentialRampToValueAtTime(500, t+.05); gn.gain.setValueAtTime(.18, t); gn.gain.exponentialRampToValueAtTime(.0001, t+.08); o.connect(gn).connect(master); o.start(t); o.stop(t+.09); }
 function judge(n, v, off, F){
   n.res = v || -1; const p = toScreen(n, F);
   G.fx.push({ x:p.x, y:p.y, t:performance.now(), v, c:noteCol(n) });
-  if (!v){ G.miss++; G.combo = 0; return; }
+  if (!v){ G.miss++; G.combo = 0; SFX.miss(); return; }
   G[v === 300 ? 'c300' : v === 100 ? 'c100' : 'c50']++;
   G.score += Math.round(v * (1 + Math.min(G.combo, 100)/25));
-  G.combo++; G.maxCombo = Math.max(G.maxCombo, G.combo); G.offs.push(off*1000); hitSound();
+  G.combo++; G.maxCombo = Math.max(G.maxCombo, G.combo); G.offs.push(off*1000); SFX.hit(v, n.hand);
 }
-function tickSound(hi){ const t = actx.currentTime, o = actx.createOscillator(), gn = actx.createGain(); o.type = 'sine'; o.frequency.value = hi ? 1900 : 1500; gn.gain.setValueAtTime(.09, t); gn.gain.exponentialRampToValueAtTime(.0001, t+.05); o.connect(gn).connect(master); o.start(t); o.stop(t+.06); }
 const bump = () => { G.combo++; G.maxCombo = Math.max(G.maxCombo, G.combo); };
 function sliderHead(n, v, off, F){
   n.head = v; const p = toScreen(n, F);
   G.fx.push({ x:p.x, y:p.y, t:performance.now(), v, c:noteCol(n), small:true });
-  if (!v){ G.combo = 0; return; }
-  G.score += Math.round(30 * (1 + Math.min(G.combo, 100)/25)); bump(); G.offs.push(off*1000); hitSound();
+  if (!v){ G.combo = 0; SFX.miss(); return; }
+  G.score += Math.round(30 * (1 + Math.min(G.combo, 100)/25)); bump(); G.offs.push(off*1000); SFX.hit(v, n.hand);
 }
 function updateSlider(n, tj, R, F, cur){
   const u = (tj - n.t)/(n.endT - n.t), bp = toScreen(pathAt(n, u), F);
@@ -728,7 +754,7 @@ function updateSlider(n, tj, R, F, cur){
   n.following = tj >= n.t && cur.some(c => canHit(c.side, n) && Math.hypot(c.x - bp.x, c.y - bp.y) <= reach);
   n.ti = n.ti || 0; n.tok = n.tok || 0;
   while (n.ti < n.ticks.length && tj >= n.ticks[n.ti]){
-    if (n.following){ n.tok++; G.score += 10; bump(); tickSound(false); } else G.combo = 0;
+    if (n.following){ n.tok++; G.score += 10; bump(); SFX.tick(); } else G.combo = 0;
     n.ti++;
   }
   if (tj < n.endT) return;
@@ -737,7 +763,7 @@ function updateSlider(n, tj, R, F, cur){
   n.res = v || -1;
   const ep = toScreen(n.path.pts.at(-1), F);
   G.fx.push({ x:ep.x, y:ep.y, t:performance.now(), v, c:noteCol(n) });
-  if (endOk){ bump(); tickSound(true); } else G.combo = 0;
+  if (endOk){ bump(); SFX.end(n.hand); } else G.combo = 0;
   if (!v){ G.miss++; return; }
   G[v === 300 ? 'c300' : v === 100 ? 'c100' : 'c50']++;
   G.score += Math.round(v * (1 + Math.min(G.combo, 100)/25));
@@ -857,108 +883,156 @@ function drawMenuScene(){
   const cx = panelW + (W - panelW)/2, cy = H/2;
   if (PV && actx){
     const tt = actx.currentTime - PV.t0 + PV.from, b = 60/S.bpm, ph = (tt - S.offset/1000)/b, fr = ph - Math.floor(ph);
-    const beat = ((Math.floor(ph) % 4) + 4) % 4, R = 70;
-    g.globalAlpha = 1 - fr*.7; g.fillStyle = beat === 0 ? '#ff4fa3' : '#47e1ff';
-    g.beginPath(); g.arc(cx, cy, R*(1 - fr*.25), 0, TAU); g.fill();
-    g.globalAlpha = 1; g.strokeStyle = '#fff'; g.lineWidth = 4; g.stroke();
-    g.fillStyle = '#fff'; g.font = '800 34px Unbounded, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(beat + 1, cx, cy + 2);
+    const next = ((Math.floor(ph) + 1) % 4 + 4) % 4, R = 60;     // the beat the chevrons are closing on
+    drawTarget(cx, cy, R, next === 0 ? HAND_COL.L : HAND_COL.R, (1 - fr)*b, b, 1, true);
+    g.fillStyle = '#fff'; g.font = '800 30px Unbounded, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(next + 1, cx, cy + 2);
   } else if (W - panelW > 260){
     g.fillStyle = 'rgba(244,239,252,.5)'; g.font = '500 14px Onest, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
-    g.fillText(camOK ? (hands.size ? (S.point === 'gun' ? 'Взведи курок большим пальцем и опусти, должен прозвучать выстрел' : `Рук в кадре: ${hands.size}`) : 'Покажи руку камере') : 'Пунктир показывает, где будут появляться круги', cx, H - 40);
+    g.fillText(camOK ? (hands.size ? (S.point === 'gun' ? 'Взведи курок большим пальцем и опусти, должен прозвучать выстрел' : `Рук в кадре: ${hands.size}`) : 'Покажи руку камере') : 'Пунктир показывает, где будут появляться мишени', cx, H - 40);
   }
 }
-function drawNote(n, t, R, F, ar){
-  const dt = n.t - t; const p = toScreen(n, F), col = noteCol(n);
-  const fade = dt > 0 ? clamp((ar - dt)/(ar*.35), 0, 1) : clamp(1 + dt/.25, 0, 1);
-  g.globalAlpha = fade;
-  const gr = g.createRadialGradient(p.x - R*.3, p.y - R*.35, R*.1, p.x, p.y, R);
-  gr.addColorStop(0, col); gr.addColorStop(1, col + '88');
-  g.fillStyle = gr; g.beginPath(); g.arc(p.x, p.y, R, 0, TAU); g.fill();
-  g.lineWidth = Math.max(3, R*.07); g.strokeStyle = '#fff'; g.stroke();
-  g.fillStyle = '#fff'; g.font = `800 ${Math.round(R*.72)}px Unbounded, sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle';
-  g.fillText(n.n, p.x, p.y + R*.04);
-  if (dt > 0){ const ap = 1 + 2.4*dt/ar; g.lineWidth = 3; g.strokeStyle = col; g.beginPath(); g.arc(p.x, p.y, R*ap, 0, TAU); g.stroke(); }
-  g.globalAlpha = 1;
+/* ---------- targets: a diamond whose core charges up while four lock-on chevrons close in ---------- */
+const diamond = (x, y, s) => { g.beginPath(); g.moveTo(x, y - s); g.lineTo(x + s, y); g.lineTo(x, y + s); g.lineTo(x - s, y); g.closePath(); };
+function drawTarget(x, y, R, col, dt, ar, fade, active){
+  const s = R*1.12, p = clamp(1 - dt/ar, 0, 1), a = fade*(active ? 1 : .5);
+  g.save(); g.globalAlpha = a; g.lineJoin = 'round'; g.lineCap = 'round';
+  // shell
+  diamond(x, y, s); g.fillStyle = 'rgba(15,11,24,.62)'; g.fill();
+  if (active){ g.shadowColor = col; g.shadowBlur = 16; }
+  g.lineWidth = Math.max(3, R*.07); g.strokeStyle = col; g.stroke(); g.shadowBlur = 0;
+  // charging core
+  diamond(x, y, s*.74*p); g.fillStyle = col; g.globalAlpha = a*.85; g.fill();
+  g.globalAlpha = a; diamond(x, y, s*.13); g.fillStyle = '#ffffff'; g.fill();
+  // lock-on chevrons spin in and land on the four tips at the moment to shoot
+  if (dt > -.05){
+    const k = clamp(dt/ar, 0, 1), dist = s*(1.14 + 1.7*k), rot = k*Math.PI/2, arm = s*.34;
+    g.strokeStyle = dt < .09 ? '#ffffff' : col; g.lineWidth = Math.max(3, R*.075);
+    for (let i = 0; i < 4; i++){
+      const ang = rot + i*Math.PI/2 - Math.PI/2, cx = x + Math.cos(ang)*dist, cy = y + Math.sin(ang)*dist;
+      const bx = Math.cos(ang), by = Math.sin(ang), px = -by, py = bx;   // chevron points at the centre
+      g.beginPath(); g.moveTo(cx + (bx + px)*arm*.7, cy + (by + py)*arm*.7); g.lineTo(cx, cy); g.lineTo(cx + (bx - px)*arm*.7, cy + (by - py)*arm*.7); g.stroke();
+    }
+  }
+  g.restore();
 }
-function drawSlider(n, t, R, F, ar){
+const fadeOf = (dt, ar) => dt > 0 ? clamp((ar - dt)/(ar*.35), 0, 1) : clamp(1 + dt/.25, 0, 1);
+function drawNote(n, t, R, F, ar, active){
+  const p = toScreen(n, F), dt = n.t - t;
+  drawTarget(p.x, p.y, R, noteCol(n), dt, ar, fadeOf(dt, ar), active);
+}
+/* sliders: a glowing rail with travelling chevrons; a small drone rides it and you keep it in your sights */
+function drawSlider(n, t, R, F, ar, active){
   const dt = n.t - t, col = noteCol(n);
   const fade = dt > 0 ? clamp((ar - dt)/(ar*.35), 0, 1) : clamp(1 - (t - n.endT)/.2, 0, 1);
   const pts = n.path.pts.map(p => toScreen(p, F));
   const trace = () => { g.beginPath(); g.moveTo(pts[0].x, pts[0].y); for (let i = 1; i < pts.length; i++) g.lineTo(pts[i].x, pts[i].y); };
   g.save(); g.lineCap = 'round'; g.lineJoin = 'round';
-  g.globalAlpha = fade*.95; trace(); g.lineWidth = 2*R + Math.max(6, R*.14); g.strokeStyle = '#ffffff'; g.stroke();
-  g.globalAlpha = fade; trace(); g.lineWidth = 2*R - Math.max(2, R*.04); g.strokeStyle = '#1a1429'; g.stroke();
-  g.globalAlpha = fade*.4; g.strokeStyle = col; g.stroke();
-  g.restore();
-  // end cap and beat ticks
-  const e = pts.at(-1); g.globalAlpha = fade*.7; g.lineWidth = 3; g.strokeStyle = '#ffffff';
-  g.beginPath(); g.arc(e.x, e.y, R*.92, 0, TAU); g.stroke();
+  g.globalAlpha = fade*.2; trace(); g.lineWidth = R*.7; g.strokeStyle = col; g.stroke();
+  g.globalAlpha = fade*.9; trace(); g.lineWidth = 3; g.stroke();
+  // chevrons flowing toward the end of the rail
+  const total = n.path.total, sp = .045, off = (performance.now()/1000*.06) % sp;
+  g.globalAlpha = fade*.55; g.strokeStyle = '#ffffff'; g.lineWidth = 2.5;
+  for (let d = off; d < total - .02; d += sp){
+    const u = d/total, a = toScreen(pathAt(n, u), F), b2 = toScreen(pathAt(n, Math.min(1, u + .01)), F);
+    const ang = Math.atan2(b2.y - a.y, b2.x - a.x), c = R*.22;
+    g.beginPath(); g.moveTo(a.x + Math.cos(ang + 2.5)*c, a.y + Math.sin(ang + 2.5)*c); g.lineTo(a.x, a.y); g.lineTo(a.x + Math.cos(ang - 2.5)*c, a.y + Math.sin(ang - 2.5)*c); g.stroke();
+  }
+  // end marker and beat ticks
+  const e = pts.at(-1); g.globalAlpha = fade*.85; g.strokeStyle = col; g.lineWidth = 3; diamond(e.x, e.y, R*.6); g.stroke();
   g.fillStyle = '#ffffff';
-  for (const tk of n.ticks){ if (tk <= t) continue; const p = toScreen(pathAt(n, (tk - n.t)/(n.endT - n.t)), F); g.beginPath(); g.arc(p.x, p.y, R*.14, 0, TAU); g.fill(); }
-  g.globalAlpha = 1;
-  // head waits like a normal circle until it is touched or missed
-  if (n.head === undefined && dt > -.3) drawNote(n, t, R, F, ar);
-  // the ball you follow
+  for (const tk of n.ticks){ if (tk <= t) continue; const p = toScreen(pathAt(n, (tk - n.t)/(n.endT - n.t)), F); diamond(p.x, p.y, R*.2); g.fill(); }
+  g.restore();
+  if (n.head === undefined && dt > -.3) drawNote(n, t, R, F, ar, active);
+  // the drone
   if (t >= n.t){
     const b = toScreen(pathAt(n, (t - n.t)/(n.endT - n.t)), F);
-    g.globalAlpha = fade;
-    if (n.following){ g.lineWidth = 3; g.strokeStyle = col; g.beginPath(); g.arc(b.x, b.y, R*2.7, 0, TAU); g.stroke();
-      g.globalAlpha = fade*.12; g.fillStyle = col; g.fill(); g.globalAlpha = fade; }
-    g.fillStyle = col; g.beginPath(); g.arc(b.x, b.y, R*.8, 0, TAU); g.fill();
-    g.lineWidth = Math.max(3, R*.08); g.strokeStyle = '#ffffff'; g.stroke();
-    g.globalAlpha = 1;
+    g.save(); g.globalAlpha = fade; g.translate(b.x, b.y);
+    if (n.following){
+      g.strokeStyle = '#ffffff'; g.lineWidth = 3; const q = R*1.45, l = R*.45;   // locked: four corner brackets
+      for (const [sx, sy] of [[-1,-1],[1,-1],[1,1],[-1,1]]){ g.beginPath(); g.moveTo(sx*q, sy*(q - l)); g.lineTo(sx*q, sy*q); g.lineTo(sx*(q - l), sy*q); g.stroke(); }
+    } else { g.setLineDash([3, 7]); g.strokeStyle = col; g.lineWidth = 2; g.globalAlpha = fade*.4; diamond(0, 0, R*1.6); g.stroke(); g.setLineDash([]); g.globalAlpha = fade; }
+    g.rotate(t*3); g.shadowColor = col; g.shadowBlur = 14;
+    diamond(0, 0, R*.72); g.fillStyle = col; g.fill(); g.shadowBlur = 0; g.lineWidth = 3; g.strokeStyle = '#ffffff'; g.stroke();
+    g.restore();
   }
 }
+const WORD = { 300:'ИДЕАЛЬНО', 100:'ХОРОШО', 50:'ЕСТЬ' }, WORD_COL = { 300:'#f4effc', 100:'#7dffb0', 50:'#ffc24a' };
+function drawFx(R, now){
+  G.fx = G.fx.filter(f => f.shot || now - f.t < 550);
+  for (const f of G.fx){
+    if (f.shot) continue;
+    const k = (now - f.t)/550, e = 1 - (1 - k)**3, seed = (f.x*7 + f.y*13) % 1;
+    g.save(); g.lineJoin = 'round';
+    if (f.v){
+      // a white flash of the core, then the target scatters into small fragments
+      const kf = clamp((now - f.t)/180, 0, 1);
+      g.globalAlpha = 1 - kf; g.fillStyle = '#ffffff'; diamond(f.x, f.y, R*(f.small ? .5 : .85)*(1 - kf*.6)); g.fill();
+      const n = f.small ? 4 : 9;
+      for (let i = 0; i < n; i++){
+        const r1 = ((seed*97 + i*37.7) % 1), ang = i*TAU/n + r1*.9, d = R*(.25 + (f.small ? .8 : 1.5)*e*(.7 + r1*.6));
+        const sz = R*(f.small ? .1 : .13 + r1*.1)*(1 - k*.7);
+        g.globalAlpha = (1 - k)*.95; g.fillStyle = i % 3 === 0 ? '#ffffff' : f.c;
+        g.save(); g.translate(f.x + Math.cos(ang)*d, f.y + Math.sin(ang)*d + e*e*R*.5); g.rotate(ang*2 + k*6*(r1 - .5));
+        g.fillRect(-sz, -sz*.45, sz*2, sz*.9); g.restore();
+      }
+      if (!f.small){
+        g.globalAlpha = 1 - k*k; g.fillStyle = WORD_COL[f.v]; g.textAlign = 'center'; g.textBaseline = 'middle';
+        g.font = `700 ${Math.round(R*.32)}px Unbounded, sans-serif`; if ('letterSpacing' in g) g.letterSpacing = '2px';
+        g.fillText(WORD[f.v], f.x, f.y - R*(1.7 + e*.4));
+      }
+    } else {
+      // a miss: the shell drops away and the word appears in red
+      g.globalAlpha = 1 - k; g.strokeStyle = '#ff5c6c'; g.lineWidth = 3; g.setLineDash([6, 6]);
+      g.save(); g.translate(f.x, f.y + e*R*.8); g.rotate(e*.5); diamond(0, 0, R*(f.small ? .6 : 1.12)); g.stroke(); g.restore();
+      if (!f.small){ g.setLineDash([]); g.fillStyle = '#ff5c6c'; g.textAlign = 'center'; g.textBaseline = 'middle';
+        g.font = `700 ${Math.round(R*.32)}px Unbounded, sans-serif`; if ('letterSpacing' in g) g.letterSpacing = '2px';
+        g.fillText('МИМО', f.x, f.y - R*1.7); }
+    }
+    g.restore();
+  }
+}
+let shownCombo = 0, comboAt = 0;
 function drawGame(){
   const t = G.mode === 'play' || G.mode === 'pause' ? songNow() : 0, F = field(), R = radius(), ar = DIFF[S.diff].ar;
   const vis = [];
   for (let i = G.i0; i < G.notes.length; i++){ const n = G.notes[i]; if (n.t - t > ar) break; if (!n.res) vis.push(n); }
-  // follow points between consecutive circles of one combo
+  // the next target for each hand is bright, the ones after it are dimmed
+  const nextOf = {};
+  for (const n of vis){ const waiting = (n.slider ? n.head === undefined : true) && n.t > t - .12; if (waiting && nextOf[n.hand] === undefined) nextOf[n.hand] = n.t; }
+  const isActive = n => Math.abs(n.t - nextOf[n.hand]) < .005 || (n.slider && n.t <= t);
+  // faint trail to the same hand's next target
   g.save(); g.setLineDash([2, 10]); g.lineCap = 'round'; g.lineWidth = 3;
   for (let i = 1; i < vis.length; i++){
-    const a = vis[i-1], b = vis[i]; if (a.c !== b.c || a.hand !== b.hand || b.twin || a.t === b.t) continue;
-    const pa = toScreen(a.slider ? a.path.pts.at(-1) : a, F), pb = toScreen(b, F), d = Math.hypot(pb.x-pa.x, pb.y-pa.y); if (d < R*2.4) continue;
+    const a = vis[i-1], b = vis[i]; if (a.hand !== b.hand || b.twin || a.t === b.t) continue;
+    const pa = toScreen(a.slider ? a.path.pts.at(-1) : a, F), pb = toScreen(b, F), d = Math.hypot(pb.x-pa.x, pb.y-pa.y); if (d < R*2.6) continue;
     const ux = (pb.x-pa.x)/d, uy = (pb.y-pa.y)/d;
-    g.globalAlpha = .35*clamp((ar - (b.t - t))/(ar*.5), 0, 1); g.strokeStyle = '#f4effc';
-    g.beginPath(); g.moveTo(pa.x + ux*R*1.2, pa.y + uy*R*1.2); g.lineTo(pb.x - ux*R*1.2, pb.y - uy*R*1.2); g.stroke();
+    g.globalAlpha = .3*clamp((ar - (b.t - t))/(ar*.5), 0, 1); g.strokeStyle = noteCol(b);
+    g.beginPath(); g.moveTo(pa.x + ux*R*1.3, pa.y + uy*R*1.3); g.lineTo(pb.x - ux*R*1.3, pb.y - uy*R*1.3); g.stroke();
   }
   g.restore();
-  for (let i = vis.length - 1; i >= 0; i--) (vis[i].slider ? drawSlider : drawNote)(vis[i], t, R, F, ar);
+  for (let i = vis.length - 1; i >= 0; i--) (vis[i].slider ? drawSlider : drawNote)(vis[i], t, R, F, ar, isActive(vis[i]));
+  drawFx(R, performance.now());
 
-  // hit effects
-  const now = performance.now();
-  G.fx = G.fx.filter(f => f.shot || now - f.t < 500);
-  for (const f of G.fx){
-    if (f.shot) continue;
-    const k = (now - f.t)/500; g.globalAlpha = 1 - k;
-    if (f.small){
-      if (f.v){ g.strokeStyle = f.c; g.lineWidth = 3*(1-k) + 1; g.beginPath(); g.arc(f.x, f.y, R*(1 + k*.5), 0, TAU); g.stroke(); }
-      else { g.strokeStyle = '#ff5c6c'; g.lineWidth = 4; g.beginPath(); g.arc(f.x, f.y, R*.5, 0, TAU); g.stroke(); }
-    } else if (f.v){
-      g.strokeStyle = f.c; g.lineWidth = 4*(1-k) + 1; g.beginPath(); g.arc(f.x, f.y, R*(1 + k*.6), 0, TAU); g.stroke();
-      g.fillStyle = f.v === 300 ? '#47e1ff' : f.v === 100 ? '#7dffb0' : '#ffc24a';
-      g.font = `700 ${Math.round(R*.5)}px "JetBrains Mono", monospace`; g.textAlign = 'center'; g.textBaseline = 'middle';
-      g.fillText(f.v, f.x, f.y - R*(1.1 + k*.4));
-    } else {
-      const s = R*.45; g.strokeStyle = '#ff5c6c'; g.lineWidth = 6; g.lineCap = 'round';
-      g.beginPath(); g.moveTo(f.x - s, f.y - s + k*20); g.lineTo(f.x + s, f.y + s + k*20); g.moveTo(f.x + s, f.y - s + k*20); g.lineTo(f.x - s, f.y + s + k*20); g.stroke();
-    }
-  }
-  g.globalAlpha = 1;
-
-  // HUD
+  // HUD: score and accuracy top-left, track top-right, streak bottom-centre
   const pad = 22;
-  g.fillStyle = 'rgba(244,239,252,.12)'; g.fillRect(0, 0, W, 4);
-  g.fillStyle = '#ff4fa3'; g.fillRect(0, 0, W*clamp(t/G.endT, 0, 1), 4);
-  g.textBaseline = 'top'; g.textAlign = 'right'; g.fillStyle = '#f4effc';
-  g.font = '700 34px "JetBrains Mono", monospace'; g.fillText(String(G.score).padStart(8, '0'), W - pad, pad);
-  g.font = '500 16px "JetBrains Mono", monospace'; g.fillStyle = 'rgba(244,239,252,.7)'; g.fillText((accuracy()*100).toFixed(2) + '%', W - pad, pad + 44);
-  g.textAlign = 'left'; g.font = '500 13px Onest, sans-serif'; g.fillText(`${T.name} · ${S.bpm} BPM · ${DIFF[S.diff].label}`, pad, pad);
-  if (G.combo > 1){ g.textBaseline = 'bottom'; g.fillStyle = '#f4effc'; g.font = '800 46px Unbounded, sans-serif'; g.fillText(G.combo + '×', pad, H - pad); }
+  g.fillStyle = 'rgba(244,239,252,.12)'; g.fillRect(0, 0, W, 3);
+  const prog = clamp(t/G.endT, 0, 1), grd = g.createLinearGradient(0, 0, W*prog, 0); grd.addColorStop(0, HAND_COL.L); grd.addColorStop(1, HAND_COL.R);
+  g.fillStyle = grd; g.fillRect(0, 0, W*prog, 3);
+  g.textBaseline = 'top'; g.textAlign = 'left'; g.fillStyle = '#f4effc';
+  g.font = '700 30px "JetBrains Mono", monospace'; g.fillText(G.score.toLocaleString('ru-RU'), pad, pad);
+  g.font = '500 14px "JetBrains Mono", monospace'; g.fillStyle = 'rgba(244,239,252,.65)'; g.fillText(`точность ${(accuracy()*100).toFixed(1)}%`, pad, pad + 40);
+  g.textAlign = 'right'; g.font = '500 13px Onest, sans-serif'; g.fillText(`${T.name} · ${S.bpm} BPM · ${DIFF[S.diff].label}`, W - pad, pad);
+  if (G.combo !== shownCombo){ if (G.combo > shownCombo) comboAt = performance.now(); shownCombo = G.combo; }
+  if (G.combo > 1){
+    const pop = 1 + .18*clamp(1 - (performance.now() - comboAt)/160, 0, 1);
+    g.textAlign = 'center'; g.textBaseline = 'alphabetic'; g.fillStyle = 'rgba(244,239,252,.6)'; g.font = '600 11px Unbounded, sans-serif';
+    if ('letterSpacing' in g) g.letterSpacing = '3px'; g.fillText('СЕРИЯ', W/2, H - pad - 48); if ('letterSpacing' in g) g.letterSpacing = '0px';
+    g.save(); g.translate(W/2, H - pad); g.scale(pop, pop); g.fillStyle = '#f4effc'; g.font = '800 40px Unbounded, sans-serif'; g.fillText(G.combo, 0, 0); g.restore();
+  }
   g.textAlign = 'center'; g.textBaseline = 'middle';
-  if (t < 0){ g.fillStyle = '#f4effc'; g.font = '700 26px Unbounded, sans-serif'; g.fillText(Math.ceil(-t) > 0 ? `Приготовься · ${Math.ceil(-t)}` : '', W/2, H*.12); }
-  if (landmarker && trackFps < 20){ g.fillStyle = '#ffc24a'; g.font = '600 14px Onest, sans-serif'; g.fillText(`Трекинг ${Math.round(trackFps)} к/с. Добавь света, чтобы камера снимала быстрее.`, W/2, H - 60); }
-  if (G.noHand > 60){ g.fillStyle = '#ffc24a'; g.font = '600 16px Onest, sans-serif'; g.fillText('Рук не видно. Отойди немного от камеры или добавь света.', W/2, H - 34); }
+  if (t < 0){ g.fillStyle = '#f4effc'; g.font = '700 26px Unbounded, sans-serif'; g.fillText(`Приготовься · ${Math.ceil(-t)}`, W/2, H*.12); }
+  if (landmarker && trackFps < 20){ g.fillStyle = '#ffc24a'; g.font = '600 14px Onest, sans-serif'; g.fillText(`Трекинг ${Math.round(trackFps)} к/с. Добавь света, чтобы камера снимала быстрее.`, W/2, H*.12 + 36); }
+  if (G.noHand > 60){ g.fillStyle = '#ffc24a'; g.font = '600 16px Onest, sans-serif'; g.fillText('Рук не видно. Отойди немного от камеры или добавь света.', W/2, H*.12 + 60); }
 }
 
 /* ---------- latency calibration: shoot (or touch) on 16 metronome clicks ---------- */
@@ -997,20 +1071,14 @@ function endCalib(done){
 }
 function drawCalib(){
   const tt = calibTime(actx.currentTime), k = Math.floor(tt/C.b), fr = tt/C.b - k, R = radius()*1.35, cx = W/2, cy = H/2;
-  const toNext = 1 - fr, lead = k < C.lead - 1;
-  g.globalAlpha = 1; g.strokeStyle = '#ff4fa3'; g.lineWidth = 3;
-  g.beginPath(); g.arc(cx, cy, R*(1 + 2*toNext), 0, TAU); g.stroke();
-  const hit = performance.now() - C.flash < 150;
-  g.fillStyle = hit ? '#ffffff' : '#ff4fa3'; g.globalAlpha = fr < .15 ? 1 : .8;
-  g.beginPath(); g.arc(cx, cy, R, 0, TAU); g.fill();
-  g.globalAlpha = 1; g.lineWidth = 5; g.strokeStyle = '#ffffff'; g.stroke();
-  g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = hit ? '#ff4fa3' : '#ffffff';
-  g.font = `800 ${Math.round(R*.6)}px Unbounded, sans-serif`;
-  g.fillText(lead || tt < 0 ? Math.max(1, C.lead - Math.max(0, k + 1)) : '•', cx, cy + 2);
+  const lead = k < C.lead - 1, hit = performance.now() - C.flash < 150;
+  drawTarget(cx, cy, R, hit ? '#ffffff' : HAND_COL.L, (1 - fr)*C.b, C.b, 1, true);
+  g.textAlign = 'center'; g.textBaseline = 'middle';
+  if (lead || tt < 0){ g.fillStyle = '#ffffff'; g.font = `800 ${Math.round(R*.55)}px Unbounded, sans-serif`; g.fillText(Math.max(1, C.lead - Math.max(0, k + 1)), cx, cy + 2); }
   g.fillStyle = '#f4effc'; g.font = '700 22px Unbounded, sans-serif';
-  g.fillText(S.point === 'gun' ? 'Стреляй ровно в щелчок' : 'Касайся круга ровно в щелчок', cx, cy - R*3.1);
+  g.fillText(S.point === 'gun' ? 'Стреляй, когда уголки сомкнутся' : 'Касайся мишени, когда уголки сомкнутся', cx, cy - R*3.3);
   g.font = '500 15px Onest, sans-serif'; g.fillStyle = 'rgba(244,239,252,.7)';
-  g.fillText(lead || tt < 0 ? 'Сначала просто послушай четыре щелчка' : `Засчитано: ${C.offs.length} · Esc отмена`, cx, cy + R*3.1);
+  g.fillText(lead || tt < 0 ? 'Сначала просто послушай четыре щелчка' : `Засчитано: ${C.offs.length} · Esc отмена`, cx, cy + R*3.3);
 }
 
 let infoT = 0;
