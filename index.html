@@ -136,7 +136,10 @@ kbd{font-family:var(--mono);font-size:11.5px;border:1px solid var(--line);border
     <div id="camInfo" class="info">Без камеры можно играть мышкой.</div>
     <label class="field"><span>Чем касаться</span>
       <select id="point"><option value="gun">Пистолетом: целься и стреляй</option><option value="palm">Касанием центра ладони</option><option value="tip">Касанием кончика указательного</option></select></label>
-    <p class="hint" id="gunHint">Сложи пистолет: указательный смотрит вперёд, большой палец вверх. Резко опусти большой палец к указательному, это выстрел. Мышью стреляй кликом.</p>
+    <label class="field" id="fireWrap"><span>Как стрелять</span>
+      <select id="fireMode"><option value="flick">Отдачей: резко дёрнуть кисть вверх</option><option value="thumb">Курком: опустить большой палец</option></select></label>
+    <p class="hint" id="gunHint"></p>
+    <label class="range" id="flickWrap"><span>Отдача срабатывает <i id="flickV"></i></span><input id="flick" type="range" min="30" max="90" step="2" value="54"></label>
     <label class="check"><input type="checkbox" id="strict"><span>Бить только своей рукой<small>Левой розовые мишени, правой голубые</small></span></label>
     <label class="check"><input type="checkbox" id="swap"><span>Поменять руки местами<small>Игра определяет руки сама, когда видит обе. Включи, если над левой рукой всё равно «П»</small></span></label>
     <label class="check"><input type="checkbox" id="mirror"><span>Зеркальное видео<small>Выключи, если ведёшь руку вправо, а курсор уходит влево</small></span></label>
@@ -147,6 +150,8 @@ kbd{font-family:var(--mono);font-size:11.5px;border:1px solid var(--line);border
     <label class="range"><span>Яркость видео <i id="dimV"></i></span><input id="dim" type="range" min="0" max="100" value="40"></label>
     <label class="range"><span>Громкость музыки <i id="volV"></i></span><input id="vol" type="range" min="0" max="100" value="80"></label>
     <label class="range"><span>Громкость эффектов <i id="sfxV"></i></span><input id="sfx" type="range" min="0" max="100" value="70"></label>
+    <label class="field"><span>Звук попадания</span>
+      <select id="kit"><option value="drums">Барабаны: левая бочка, правая малый</option><option value="glass">Стекло</option></select></label>
   </section>
 
   <button id="start" class="start" disabled>Играть</button>
@@ -195,8 +200,8 @@ function resize(){ const d = Math.min(2, devicePixelRatio || 1); W = innerWidth;
 addEventListener('resize', resize); resize();
 
 /* ---------- settings ---------- */
-const S = { bpm:120, offset:0, diff:'normal', seed:'neon', point:'gun', field:80, lat:60, dim:40, vol:80, trig:38, strict:true, swap:false, cross:'some', mirror:true, sfx:70 };
-try { const s = JSON.parse(localStorage.getItem('beatreach') || '{}'); for (const k of ['diff','seed','point','field','lat','dim','vol','trig','strict','cross','mirror','sfx']) if (k in s) S[k] = s[k]; } catch {}
+const S = { bpm:120, offset:0, diff:'normal', seed:'neon', point:'gun', field:80, lat:60, dim:40, vol:80, trig:38, strict:true, swap:false, cross:'some', mirror:true, sfx:70, kit:'drums', fireMode:'flick', flick:54 };
+try { const s = JSON.parse(localStorage.getItem('beatreach') || '{}'); for (const k of ['diff','seed','point','field','lat','dim','vol','trig','strict','cross','mirror','sfx','kit','fireMode','flick']) if (k in s) S[k] = s[k]; } catch {}
 function save(){ try { const { bpm, offset, ...rest } = S; localStorage.setItem('beatreach', JSON.stringify(rest)); } catch {} }
 
 let toastT;
@@ -219,16 +224,40 @@ function hiss(t, type, freq, q, peak, dec){
   gn.gain.setValueAtTime(peak, t); gn.gain.exponentialRampToValueAtTime(.0001, t + dec);
   s.connect(f).connect(gn).connect(sfx); s.start(t, Math.random()*.3); s.stop(t + dec + .02);
 }
+// a small synthesized drum kit
+function kick(t, peak){
+  const o = actx.createOscillator(), gn = actx.createGain();
+  o.frequency.setValueAtTime(150, t); o.frequency.exponentialRampToValueAtTime(48, t + .12);
+  gn.gain.setValueAtTime(peak, t); gn.gain.exponentialRampToValueAtTime(.0001, t + .32);
+  o.connect(gn).connect(sfx); o.start(t); o.stop(t + .34);
+  hiss(t, 'highpass', 3000, .7, peak*.25, .012);                       // beater click
+}
+function snare(t, peak){
+  hiss(t, 'highpass', 1500, .7, peak*.7, .16); hiss(t, 'bandpass', 4000, 1, peak*.3, .08);
+  blip(t, 'triangle', 200, 160, peak*.5, .09);                          // drum body
+}
+function clap(t, peak){ for (const d of [0, .011, .022]) hiss(t + d, 'bandpass', 1300, 1.6, peak*.6, .02); hiss(t + .03, 'bandpass', 1200, 1.2, peak*.45, .14); }
+const hat = (t, peak, dec) => hiss(t, 'highpass', 8000, .7, peak, dec);
 const SFX = {
   shot(){ const t = actx.currentTime; hiss(t, 'bandpass', 1400, 1.2, .22, .06); blip(t, 'sine', 180, 60, .12, .07); },
-  // glassy ping; sharper and brighter the more precise the hit, a whole tone lower for the left hand
-  hit(v, side){ const t = actx.currentTime, k = side === 'L' ? 1 : 1.125;
-    if (v === 300){ blip(t, 'sine', 1568*k, 0, .16, .22); blip(t, 'sine', 2352*k, 0, .06, .14); blip(t + .045, 'sine', 2093*k, 0, .08, .18); hiss(t, 'highpass', 6000, .7, .08, .03); }
-    else if (v === 100){ blip(t, 'triangle', 1175*k, 0, .14, .14); hiss(t, 'highpass', 5000, .7, .05, .025); }
-    else blip(t, 'sine', 587*k, 440*k, .14, .09); },
-  miss(){ blip(actx.currentTime, 'triangle', 140, 70, .1, .16); },
-  tick(){ blip(actx.currentTime, 'sine', 2637, 0, .06, .04); },
-  end(side){ const t = actx.currentTime, k = side === 'L' ? 1 : 1.125; blip(t, 'sine', 1319*k, 0, .1, .12); blip(t + .06, 'sine', 1976*k, 0, .1, .18); },
+  dry(){ hiss(actx.currentTime, 'highpass', 2500, .7, .05, .02); },          // a shot that hit nothing
+  hit(v, side){
+    const t = actx.currentTime, L = side === 'L';
+    if (S.kit === 'glass'){ const k = L ? 1 : 1.125;
+      if (v === 300){ blip(t, 'sine', 1568*k, 0, .16, .22); blip(t, 'sine', 2352*k, 0, .06, .14); blip(t + .045, 'sine', 2093*k, 0, .08, .18); hiss(t, 'highpass', 6000, .7, .08, .03); }
+      else if (v === 100){ blip(t, 'triangle', 1175*k, 0, .14, .14); hiss(t, 'highpass', 5000, .7, .05, .025); }
+      else blip(t, 'sine', 587*k, 440*k, .14, .09);
+      return; }
+    // drums: left hand is the kick, right hand the snare; precision makes the hit fuller
+    if (v === 300){ if (L) kick(t, .9); else { snare(t, .55); clap(t, .4); } hat(t, .07, .03); }
+    else if (v === 100){ if (L) kick(t, .62); else snare(t, .42); }
+    else blip(t, 'sine', L ? 110 : 180, L ? 70 : 120, .3, .2);          // a dull tom
+  },
+  miss(){ blip(actx.currentTime, 'triangle', S.kit === 'glass' ? 140 : 90, 60, .08, .14); },
+  tick(){ if (S.kit === 'glass') blip(actx.currentTime, 'sine', 2637, 0, .06, .04); else hat(actx.currentTime, .12, .035); },
+  end(side){ const t = actx.currentTime;
+    if (S.kit === 'glass'){ const k = side === 'L' ? 1 : 1.125; blip(t, 'sine', 1319*k, 0, .1, .12); blip(t + .06, 'sine', 1976*k, 0, .1, .18); return; }
+    hat(t, .14, .2); if (side === 'L') kick(t, .55); else clap(t, .35); },
 };
 function AC(){
   if (!actx){ actx = new (window.AudioContext || window.webkitAudioContext)(); master = actx.createGain(); master.connect(actx.destination); sfx = actx.createGain(); sfx.connect(actx.destination); }
@@ -531,11 +560,18 @@ async function makeDemo(){
 /* ---------- rhythm controls ---------- */
 function syncInputs(){
   $('#bpm').value = S.bpm; $('#offset').value = S.offset; $('#seed').value = S.seed; $('#point').value = S.point;
-  for (const k of ['field','lat','dim','vol','trig','sfx']) $('#'+k).value = S[k];
+  for (const k of ['field','lat','dim','vol','trig','sfx','flick']) $('#'+k).value = S[k];
   $('#sfxV').textContent = S.sfx + '%';
   $('#cross').value = S.cross; $('#strict').checked = S.strict; $('#swap').checked = S.swap; $('#mirror').checked = S.mirror;
   $('#trigV').textContent = S.trig < 32 ? 'туго' : S.trig > 46 ? 'легко' : 'средне';
-  $('#gunHint').hidden = $('#trigWrap').hidden = S.point !== 'gun';
+  const gun = S.point === 'gun';
+  $('#gunHint').hidden = $('#fireWrap').hidden = !gun;
+  $('#trigWrap').hidden = !gun || S.fireMode !== 'thumb'; $('#flickWrap').hidden = !gun || S.fireMode !== 'flick';
+  $('#fireMode').value = S.fireMode; $('#kit').value = S.kit;
+  $('#flickV').textContent = S.flick < 44 ? 'от лёгкого рывка' : S.flick > 66 ? 'от сильного рывка' : 'средне';
+  $('#gunHint').textContent = S.fireMode === 'flick'
+    ? 'Сложи пистолет и целься указательным. Выстрел: резко дёрни кисть вверх, как при отдаче, и верни обратно. Выстрел уйдёт туда, куда ты целился до рывка. Мышью стреляй кликом.'
+    : 'Сложи пистолет: указательный вперёд, большой палец вверх. Выстрел: резко опусти большой палец к указательному. Мышью стреляй кликом.';
   $('#fieldV').textContent = S.field + '%'; $('#latV').textContent = S.lat + ' мс'; $('#dimV').textContent = S.dim + '%'; $('#volV').textContent = S.vol + '%';
   document.querySelectorAll('#diff button').forEach(btn => btn.setAttribute('aria-pressed', btn.dataset.v === S.diff));
 }
@@ -557,8 +593,10 @@ $('#seed').onchange = e => { S.seed = e.target.value.trim() || 'neon'; save(); s
 $('#reroll').onclick = () => { const w = ['neon','tide','orbit','ember','prism','drift','pulse','comet','echo','flux','nova','rift']; S.seed = w[Math.floor(Math.random()*w.length)] + Math.floor(Math.random()*100); save(); syncInputs(); regen(); };
 $('#cross').onchange = e => { S.cross = e.target.value; save(); regen(); };
 $('#point').onchange = e => { S.point = e.target.value; save(); syncInputs(); };
+$('#fireMode').onchange = e => { S.fireMode = e.target.value; save(); syncInputs(); for (const h of hands.values()){ h.armed = undefined; h.cocked = false; h.fh = []; } };
+$('#kit').onchange = e => { S.kit = e.target.value; save(); const ctx = AC(); ctx.resume(); SFX.hit(300, 'L'); setTimeout(() => SFX.hit(300, 'R'), 260); };
 for (const k of ['strict','swap','mirror']) $('#'+k).onchange = e => { S[k] = e.target.checked; save(); if (k === 'mirror'){ labelTrust = 0; labelFlip = false; hands.clear(); } };
-for (const k of ['field','lat','dim','vol','trig','sfx']) $('#'+k).oninput = e => { S[k] = +e.target.value; save(); syncInputs(); if (k === 'vol' && master) master.gain.value = (S.vol/100) ** 1.5;
+for (const k of ['field','lat','dim','vol','trig','sfx','flick']) $('#'+k).oninput = e => { S[k] = +e.target.value; save(); syncInputs(); if (k === 'vol' && master) master.gain.value = (S.vol/100) ** 1.5;
   if (k === 'sfx' && sfx){ sfx.gain.value = (S.sfx/100) ** 1.5; SFX.hit(300, 'R'); } };
 
 /* metronome preview */
@@ -610,19 +648,38 @@ const audioNow = () => actx ? actx.currentTime : 0;
 function fire(x, y, side){
   shots.push({ x, y, at: audioNow(), side });
   G.fx.push({ x, y, t: performance.now(), shot: true });
-  if (actx) SFX.shot();
+  if (actx){ if (G.mode === 'calib') SFX.hit(300, side === 'L' ? 'L' : 'R'); else if (G.mode !== 'play') SFX.shot(); }
 }
 cv.addEventListener('pointerdown', e => { if (S.point !== 'gun') return; AC(); mouse.x = e.clientX; mouse.y = e.clientY; mouse.seen = performance.now(); fire(mouse.x, mouse.y, 'any'); });
 const d3 = (a, b) => Math.hypot(a.x - b.x, a.y - b.y, (a.z || 0) - (b.z || 0));
-function readTrigger(h, wl){
-  const scale = d3(wl[0], wl[9]) || 1;
-  const ratio = Math.min(d3(wl[4], wl[5]), d3(wl[4], wl[6])) / scale;
+// Two ways to shoot with a finger gun.
+// "flick" (default): a sharp upward jerk of the hand, like recoil. It is measured as how fast the fingertip rises
+// above the wrist, in palm lengths, so moving the whole arm to aim does not count, only the wrist snap does.
+// "thumb": drop the raised thumb onto the index finger.
+function readGun(h, lm, wl){
   const indexOut = d3(wl[8], wl[0]) > d3(wl[6], wl[0]) * 1.1;
-  h.ratio = h.ratio == null ? ratio : h.ratio + (ratio - h.ratio)*.6;
   h.gun = indexOut;
-  const fireT = S.trig/100, cockT = fireT + .15;
-  if (h.ratio > cockT){ h.cocked = true; h.aim = { x:h.x, y:h.y }; }
-  else if (h.cocked && h.ratio < fireT){ h.cocked = false; if (indexOut){ const a = h.aim || h; fire(a.x, a.y, h.side); } }
+  if (S.fireMode === 'thumb'){
+    const ratio = Math.min(d3(wl[4], wl[5]), d3(wl[4], wl[6])) / (d3(wl[0], wl[9]) || 1);
+    h.ratio = h.ratio == null ? ratio : h.ratio + (ratio - h.ratio)*.6;
+    const fireT = S.trig/100, cockT = fireT + .15;
+    h.meter = clamp((h.ratio - fireT)/.3, 0, 1);
+    if (h.ratio > cockT){ h.cocked = true; h.aim = { x:h.x, y:h.y }; }
+    else if (h.cocked && h.ratio < fireT){ h.cocked = false; if (indexOut){ const a = h.aim || h; fire(a.x, a.y, h.side); } }
+    return;
+  }
+  const vw = video.videoWidth || 1, vh = video.videoHeight || 1, now = performance.now();
+  const palm = Math.hypot((lm[0].x - lm[9].x)*vw, (lm[0].y - lm[9].y)*vh) || 1;
+  const up = (lm[0].y - lm[8].y)*vh/palm;                    // fingertip height above the wrist, in palm lengths
+  const hist = h.fh || (h.fh = []); hist.push({ t:now, up, x:h.x, y:h.y });
+  while (hist.length > 1 && now - hist[0].t > 170) hist.shift();
+  let lo = hist[0]; for (const q of hist) if (q.up < lo.up) lo = q;
+  const rise = up - lo.up, thr = S.flick/100;
+  h.meter = clamp(rise/thr, 0, 1);
+  if (h.armed === undefined) h.armed = true;
+  if (h.armed && rise > thr && indexOut){ h.armed = false; h.firedAt = now; fire(lo.x, lo.y, h.side); }   // aim from where the flick began
+  else if (!h.armed && now - h.firedAt > 180 && rise < thr*.3) h.armed = true;
+  h.cocked = h.armed;
 }
 // One Euro filter: heavy smoothing while the hand is still, almost none while it moves fast
 let trackFps = 30, labelTrust = 0, labelFlip = false;
@@ -686,7 +743,7 @@ function updateHands(){
       const tracked = dets.map(d => d.h);
       if (tracked.length === 2){ const [a, b] = tracked; a.side = a.pr >= b.pr ? 'R' : 'L'; b.side = a.side === 'R' ? 'L' : 'R'; }
       else for (const h of tracked) h.side = h.pr >= .5 ? 'R' : 'L';
-      if (S.point === 'gun') for (const d of dets) readTrigger(d.h, d.wl);
+      if (S.point === 'gun') for (const d of dets) readGun(d.h, d.lm, d.wl);
     }
   }
   for (const [k, h] of hands) if (tnow - h.seen > 200) hands.delete(k);
@@ -778,17 +835,18 @@ function updateGame(){
   const waiting = n => !n.res && (n.slider ? n.head === undefined : true);
   for (const sh of shots.splice(0)){
     const ts = sh.at - G.t0 - audioLag() - (sh.side === 'any' ? 0 : S.lat/1000);
-    let first = null;
+    let first = null, landed = false;
     for (let i = G.i0; i < G.notes.length; i++){ const n = G.notes[i]; if (waiting(n) && canHit(sh.side, n) && ts - n.t <= w50){ first = n; break; } }
-    if (!first || first.t - ts > .4*d.win) continue;          // too early to count for anything
+    if (!first || first.t - ts > .4*d.win){ SFX.dry(); continue; }   // too early to count for anything
     for (let i = G.i0; i < G.notes.length; i++){
       const n = G.notes[i]; if (n.t - first.t > .005) break; if (n.t < first.t - .005 || !waiting(n) || !canHit(sh.side, n)) continue;
       const p = toScreen(n, F); if (Math.hypot(sh.x - p.x, sh.y - p.y) > R*1.45) continue;
       const off = ts - n.t;
       if (off < -w50){ n.slider ? sliderHead(n, 0, 0, F) : judge(n, 0, 0, F); }   // shot way too early: miss, like a mistimed click
       else n.slider ? sliderHead(n, grade(off), off, F) : judge(n, grade(off), off, F);
-      break;
+      landed = true; break;
     }
+    if (!landed) SFX.dry();
   }
 
   for (let i = G.i0; i < G.notes.length; i++){
@@ -846,7 +904,7 @@ function drawCursors(){
     g.globalAlpha = 1;
     if (S.point === 'gun'){
       // crosshair; the outer arc fills as the thumb rises and turns solid when the trigger is cocked
-      const ready = c.mouse || c.cocked, lvl = c.mouse ? 1 : clamp(((c.ratio ?? 0) - S.trig/100)/.3, 0, 1);
+      const ready = c.mouse || c.cocked, lvl = c.mouse ? 1 : (c.meter ?? 0);
       g.globalAlpha = c.mouse || c.gun ? 1 : .45; g.strokeStyle = col; g.lineWidth = 3; g.lineCap = 'round';
       g.beginPath(); g.arc(c.x, c.y, 16, 0, TAU); g.stroke();
       for (let k = 0; k < 4; k++){ const a = k*Math.PI/2; g.beginPath(); g.moveTo(c.x + Math.cos(a)*9, c.y + Math.sin(a)*9); g.lineTo(c.x + Math.cos(a)*22, c.y + Math.sin(a)*22); g.stroke(); }
@@ -888,7 +946,7 @@ function drawMenuScene(){
     g.fillStyle = '#fff'; g.font = '800 30px Unbounded, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(next + 1, cx, cy + 2);
   } else if (W - panelW > 260){
     g.fillStyle = 'rgba(244,239,252,.5)'; g.font = '500 14px Onest, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
-    g.fillText(camOK ? (hands.size ? (S.point === 'gun' ? 'Взведи курок большим пальцем и опусти, должен прозвучать выстрел' : `Рук в кадре: ${hands.size}`) : 'Покажи руку камере') : 'Пунктир показывает, где будут появляться мишени', cx, H - 40);
+    g.fillText(camOK ? (hands.size ? (S.point === 'gun' ? (S.fireMode === 'flick' ? 'Прицелься и резко дёрни кисть вверх, должен прозвучать выстрел' : 'Взведи курок большим пальцем и опусти, должен прозвучать выстрел') : `Рук в кадре: ${hands.size}`) : 'Покажи руку камере') : 'Пунктир показывает, где будут появляться мишени', cx, H - 40);
   }
 }
 /* ---------- targets: a diamond whose core charges up while four lock-on chevrons close in ---------- */
