@@ -142,6 +142,7 @@ kbd{font-family:var(--mono);font-size:11.5px;border:1px solid var(--line);border
     <label class="range" id="trigWrap"><span>Курок срабатывает <i id="trigV"></i></span><input id="trig" type="range" min="20" max="60" value="38"></label>
     <label class="range"><span>Размер поля <i id="fieldV"></i></span><input id="field" type="range" min="50" max="100" value="80"></label>
     <label class="range"><span>Задержка камеры <i id="latV"></i></span><input id="lat" type="range" min="0" max="250" step="5" value="60"></label>
+    <button id="calib" class="ghost">Откалибровать задержку по метроному</button>
     <label class="range"><span>Яркость видео <i id="dimV"></i></span><input id="dim" type="range" min="0" max="100" value="40"></label>
     <label class="range"><span>Громкость <i id="volV"></i></span><input id="vol" type="range" min="0" max="100" value="80"></label>
   </section>
@@ -286,9 +287,9 @@ const WEIGHTS = {
   hard:   { polygon:2, circle:2, zigzag:2, walk:2, line:3, jumps:3, mirror:2 },
 };
 const DIFF = {
-  easy:   { label:'Лёгкая',  step:2, half:0,   dbl:0,   ar:1.5,  cs:.095, win:1.25, jump:.42 },
-  normal: { label:'Средняя', step:1, half:.12, dbl:.05, ar:1.15, cs:.082, win:1.1,  jump:.55 },
-  hard:   { label:'Сложная', step:1, half:.4,  dbl:.1,  ar:.88,  cs:.072, win:1,    jump:.7, sl:.12 },
+  easy:   { label:'Лёгкая',  step:2, half:0,   dbl:0,   ar:1.8,  cs:.11,  win:1.35, jump:.38 },
+  normal: { label:'Средняя', step:1, half:.05, dbl:.04, ar:1.4,  cs:.095, win:1.2,  jump:.48 },
+  hard:   { label:'Сложная', step:1, half:.3,  dbl:.09, ar:1.05, cs:.082, win:1.1,  jump:.62, sl:.12 },
 };
 DIFF.easy.sl = .22; DIFF.normal.sl = .15;
 
@@ -429,8 +430,16 @@ function assignHands(notes, b, r, cross){
     if (cross && crossesWith(nt, alt) && r() < cross) order = [alt, nat];   // sometimes cross on purpose
     let h = order.find(hh => ok(nt, hh));
     if (!h && nt.slider){ flip(nt); h = order.find(hh => ok(nt, hh)); if (!h){ flip(nt); toCircle(nt); h = order.find(hh => ok(nt, hh)); } }
-    if (!h){                                  // nobody can take it as placed: pull it to the natural hand's side
+    if (!h){                                  // nobody can take it as placed: pull it within reach of a hand
       if (nt.slider) toCircle(nt);
+      const ox = nt.x, oy = nt.y;
+      for (const hh of order){
+        const me = pos[hh], dt = nt.t - me.t, md = (SPEED*dt + .1)*.9, dx = ox - me.x, dy = oy - me.y, dd = Math.hypot(dx, dy);
+        if (dt < 2 && dd > md){ nt.x = me.x + dx/dd*md; nt.y = me.y + dy/dd*md; } else { nt.x = ox; nt.y = oy; }
+        if (ok(nt, hh)){ h = hh; break; }
+      }
+      if (h){ place(nt, h); continue; }
+      nt.x = ox; nt.y = oy;
       h = nat; const o = pos[other(h)];
       const edge = recent(o, nt.t) ? (h === 'L' ? o.x - .12 : o.x + .12) : .5;
       nt.x = h === 'L' ? clamp(Math.min(nt.x, edge), .04, .62) : clamp(Math.max(nt.x, edge), .38, .96);
@@ -544,7 +553,7 @@ let camOK = false, landmarker = null, lastVT = -1;
 $('#cam').onclick = async () => {
   $('#cam').disabled = true; $('#camInfo').textContent = 'Запрашиваю доступ к камере…';
   try {
-    const st = await navigator.mediaDevices.getUserMedia({ video:{ width:{ideal:960}, height:{ideal:540}, facingMode:'user' }, audio:false });
+    const st = await navigator.mediaDevices.getUserMedia({ video:{ width:{ideal:960}, height:{ideal:540}, frameRate:{ ideal:60 }, facingMode:'user' }, audio:false });
     video.srcObject = st; await video.play(); camOK = true;
   } catch (e){
     $('#cam').disabled = false;
@@ -586,11 +595,24 @@ function readTrigger(h, wl){
   if (h.ratio > cockT){ h.cocked = true; h.aim = { x:h.x, y:h.y }; }
   else if (h.cocked && h.ratio < fireT){ h.cocked = false; if (indexOut){ const a = h.aim || h; fire(a.x, a.y, h.side); } }
 }
+// One Euro filter: heavy smoothing while the hand is still, almost none while it moves fast
+let trackFps = 30;
+function oneEuro(h, x, y, dt){
+  const gun = S.point === 'gun', minCut = gun ? .9 : 1.4, beta = gun ? .003 : .005;
+  const alpha = fc => { const tau = 1/(2*Math.PI*fc); return 1/(1 + tau/dt); };
+  if (!h.f){ h.f = { x, y, dx:0, dy:0 }; h.x = x; h.y = y; return; }
+  const f = h.f, ad = alpha(1);
+  f.dx += ((x - f.x)/dt - f.dx)*ad; f.dy += ((y - f.y)/dt - f.dy)*ad;
+  const a = alpha(minCut + beta*Math.hypot(f.dx, f.dy));
+  f.x += (x - f.x)*a; f.y += (y - f.y)*a; h.x = f.x; h.y = f.y;
+}
 function videoRect(){ const vw = video.videoWidth || 16, vh = video.videoHeight || 9, s = Math.max(W/vw, H/vh), dw = vw*s, dh = vh*s; return { ox:(W-dw)/2, oy:(H-dh)/2, dw, dh }; }
 function updateHands(){
   const tnow = performance.now();
   if (landmarker && camOK && video.readyState >= 2 && video.currentTime !== lastVT){
+    const frameDt = lastVT > 0 ? clamp(video.currentTime - lastVT, 1/120, .2) : 1/30;
     lastVT = video.currentTime; let res = null;
+    trackFps = trackFps*.9 + (1/frameDt)*.1;
     try { res = landmarker.detectForVideo(video, tnow); } catch {}
     if (res){
       const R = videoRect(), hd = res.handednesses || res.handedness || [];
@@ -601,7 +623,6 @@ function updateHands(){
         const p = S.point === 'palm' ? { x:(lm[0].x+lm[5].x+lm[9].x+lm[17].x)/4, y:(lm[0].y+lm[5].y+lm[9].y+lm[17].y)/4 } : lm[8];
         return { lm, wl: (res.worldLandmarks || [])[i] || lm, sx: W - (R.ox + p.x*R.dw), sy: R.oy + p.y*R.dh, pr };
       });
-      // keep each tracked hand attached to the nearest detection, so a flickering label can't swap them mid-song
       // keep each tracked hand attached to its detection; when arms cross, the left/right label decides, not just distance
       const free = [...hands.values()], diag = Math.hypot(W, H);
       const cost = (h, d) => Math.hypot(h.x - d.sx, h.y - d.sy)/diag + .6*Math.abs(h.pr - d.pr);
@@ -621,9 +642,8 @@ function updateHands(){
         if (!best){ best = { id: ++handId, x:d.sx, y:d.sy, trail:[], pr:d.pr }; hands.set(best.id, best); }
         d.h = best; best.pr = best.pr*.75 + d.pr*.25;
         const jump = Math.hypot(d.sx - best.x, d.sy - best.y) > diag*.15;   // identity fixed after a crossing: snap, don't glide
-        const k = jump ? 1 : S.point === 'gun' ? .5 : .7;                   // a steadier crosshair for aiming
-        if (jump) best.trail = [];
-        best.x += (d.sx - best.x)*k; best.y += (d.sy - best.y)*k; best.seen = tnow;
+        if (jump){ best.trail = []; best.f = null; }
+        oneEuro(best, d.sx, d.sy, frameDt); best.seen = tnow;
       });
       const tracked = dets.map(d => d.h);
       if (tracked.length === 2){ const [a, b] = tracked; a.side = a.pr >= b.pr ? 'R' : 'L'; b.side = a.side === 'R' ? 'L' : 'R'; }
@@ -644,7 +664,9 @@ const HAND_COL = { L:'#ff4fa3', R:'#47e1ff' };
 const noteCol = n => HAND_COL[n.hand] || '#ff4fa3';
 const canHit = (side, n) => !S.strict || side === 'any' || side === n.hand;
 const G = { mode:'menu', t0:0, src:null, notes:[], i0:0, score:0, combo:0, maxCombo:0, c300:0, c100:0, c50:0, miss:0, fx:[], offs:[], endT:0, noHand:0 };
-const songNow = () => actx ? actx.currentTime - G.t0 : 0;
+// what the player actually hears lags the audio clock by the output latency (big on Bluetooth headphones)
+const audioLag = () => actx ? (actx.outputLatency || actx.baseLatency || 0) : 0;
+const songNow = () => actx ? actx.currentTime - G.t0 - audioLag() : 0;
 function field(){ const f = S.field/100, fw = W*f, fh = H*f*.86; return { x0:(W-fw)/2, y0:(H-fh)/2 + H*.03, fw, fh }; }
 function toScreen(n, F){ return { x: F.x0 + n.x*F.fw, y: F.y0 + n.y*F.fh }; }
 const radius = () => Math.min(W, H) * DIFF[S.diff].cs;
@@ -668,6 +690,7 @@ $('#retry1').onclick = () => { actx.resume(); startGame(); }; $('#retry2').oncli
 $('#tomenu1').onclick = toMenu; $('#tomenu2').onclick = toMenu;
 addEventListener('keydown', e => {
   if (e.target.matches('input,select')) return;
+  if (e.key === 'Escape' && G.mode === 'calib'){ endCalib(false); return; }
   if (e.key === 'Escape' || e.key === 'p' || e.key === 'з'){ if (G.mode === 'play') pauseGame(); else if (G.mode === 'pause') resumeGame(); }
 });
 document.addEventListener('visibilitychange', () => { if (document.hidden) pauseGame(); });
@@ -691,7 +714,7 @@ function sliderHead(n, v, off, F){
 }
 function updateSlider(n, tj, R, F, cur){
   const u = (tj - n.t)/(n.endT - n.t), bp = toScreen(pathAt(n, u), F);
-  const reach = R * (n.following ? 2.4 : 1.6);   // follow ring grows once you have the ball
+  const reach = R * (n.following ? 2.7 : 2.0);   // follow ring grows once you have the ball
   n.following = tj >= n.t && cur.some(c => canHit(c.side, n) && Math.hypot(c.x - bp.x, c.y - bp.y) <= reach);
   n.ti = n.ti || 0; n.tok = n.tok || 0;
   while (n.ti < n.ticks.length && tj >= n.ticks[n.ti]){
@@ -710,7 +733,7 @@ function updateSlider(n, tj, R, F, cur){
   G.score += Math.round(v * (1 + Math.min(G.combo, 100)/25));
 }
 function updateGame(){
-  const t = songNow(), tj = t - S.lat/1000, d = DIFF[S.diff], w50 = .24*d.win, w100 = .16*d.win, w300 = .09*d.win;
+  const t = songNow(), tj = t - S.lat/1000, d = DIFF[S.diff], w50 = .28*d.win, w100 = .19*d.win, w300 = .11*d.win;
   const F = field(), R = radius(), cur = cursors(), gun = S.point === 'gun';
   const grade = off => { const a = Math.abs(off); return a <= w300 ? 300 : a <= w100 ? 100 : 50; };
   while (G.i0 < G.notes.length && G.notes[G.i0].res) G.i0++;
@@ -718,13 +741,13 @@ function updateGame(){
   // Shots: only the earliest waiting circle (and its same-time partner) can take a bullet
   const waiting = n => !n.res && (n.slider ? n.head === undefined : true);
   for (const sh of shots.splice(0)){
-    const ts = sh.at - G.t0 - (sh.side === 'any' ? 0 : S.lat/1000);
+    const ts = sh.at - G.t0 - audioLag() - (sh.side === 'any' ? 0 : S.lat/1000);
     let first = null;
     for (let i = G.i0; i < G.notes.length; i++){ const n = G.notes[i]; if (waiting(n) && canHit(sh.side, n) && ts - n.t <= w50){ first = n; break; } }
     if (!first || first.t - ts > .4*d.win) continue;          // too early to count for anything
     for (let i = G.i0; i < G.notes.length; i++){
       const n = G.notes[i]; if (n.t - first.t > .005) break; if (n.t < first.t - .005 || !waiting(n) || !canHit(sh.side, n)) continue;
-      const p = toScreen(n, F); if (Math.hypot(sh.x - p.x, sh.y - p.y) > R*1.25) continue;
+      const p = toScreen(n, F); if (Math.hypot(sh.x - p.x, sh.y - p.y) > R*1.45) continue;
       const off = ts - n.t;
       if (off < -w50){ n.slider ? sliderHead(n, 0, 0, F) : judge(n, 0, 0, F); }   // shot way too early: miss, like a mistimed click
       else n.slider ? sliderHead(n, grade(off), off, F) : judge(n, grade(off), off, F);
@@ -737,7 +760,7 @@ function updateGame(){
     if (n.slider){
       if (n.head === undefined){
         if (tj - n.t > w50) sliderHead(n, 0, 0, F);
-        else if (!gun){ const p = toScreen(n, F); if (cur.some(c => canHit(c.side, n) && Math.hypot(c.x-p.x, c.y-p.y) <= R*1.2)) sliderHead(n, grade(tj - n.t), tj - n.t, F); }
+        else if (!gun){ const p = toScreen(n, F); if (cur.some(c => canHit(c.side, n) && Math.hypot(c.x-p.x, c.y-p.y) <= R*1.35)) sliderHead(n, grade(tj - n.t), tj - n.t, F); }
       }
       updateSlider(n, tj, R, F, cur);
       continue;
@@ -745,7 +768,7 @@ function updateGame(){
     if (tj - n.t > w50){ judge(n, 0, 0, F); continue; }
     if (gun) continue;
     const p = toScreen(n, F);
-    for (const c of cur) if (canHit(c.side, n) && Math.hypot(c.x-p.x, c.y-p.y) <= R*1.2){ const off = tj - n.t; judge(n, grade(off), off, F); break; }
+    for (const c of cur) if (canHit(c.side, n) && Math.hypot(c.x-p.x, c.y-p.y) <= R*1.35){ const off = tj - n.t; judge(n, grade(off), off, F); break; }
   }
   G.noHand = (landmarker && !hands.size) ? G.noHand + 1 : 0;
   if (t > G.endT) finish();
@@ -869,7 +892,7 @@ function drawSlider(n, t, R, F, ar){
   if (t >= n.t){
     const b = toScreen(pathAt(n, (t - n.t)/(n.endT - n.t)), F);
     g.globalAlpha = fade;
-    if (n.following){ g.lineWidth = 3; g.strokeStyle = col; g.beginPath(); g.arc(b.x, b.y, R*2.4, 0, TAU); g.stroke();
+    if (n.following){ g.lineWidth = 3; g.strokeStyle = col; g.beginPath(); g.arc(b.x, b.y, R*2.7, 0, TAU); g.stroke();
       g.globalAlpha = fade*.12; g.fillStyle = col; g.fill(); g.globalAlpha = fade; }
     g.fillStyle = col; g.beginPath(); g.arc(b.x, b.y, R*.8, 0, TAU); g.fill();
     g.lineWidth = Math.max(3, R*.08); g.strokeStyle = '#ffffff'; g.stroke();
@@ -924,14 +947,75 @@ function drawGame(){
   if (G.combo > 1){ g.textBaseline = 'bottom'; g.fillStyle = '#f4effc'; g.font = '800 46px Unbounded, sans-serif'; g.fillText(G.combo + '×', pad, H - pad); }
   g.textAlign = 'center'; g.textBaseline = 'middle';
   if (t < 0){ g.fillStyle = '#f4effc'; g.font = '700 26px Unbounded, sans-serif'; g.fillText(Math.ceil(-t) > 0 ? `Приготовься · ${Math.ceil(-t)}` : '', W/2, H*.12); }
+  if (landmarker && trackFps < 20){ g.fillStyle = '#ffc24a'; g.font = '600 14px Onest, sans-serif'; g.fillText(`Трекинг ${Math.round(trackFps)} к/с. Добавь света, чтобы камера снимала быстрее.`, W/2, H - 60); }
   if (G.noHand > 60){ g.fillStyle = '#ffc24a'; g.font = '600 16px Onest, sans-serif'; g.fillText('Рук не видно. Отойди немного от камеры или добавь света.', W/2, H - 34); }
 }
 
+/* ---------- latency calibration: shoot (or touch) on 16 metronome clicks ---------- */
+const C = { t0:0, b:.6, lead:4, beats:20, offs:[], nodes:[], inside:new Map(), flash:0 };
+const calibTime = at => at - C.t0 - audioLag();
+$('#calib').onclick = () => {
+  if (!landmarker){ toast('Сначала включи камеру: калибруется именно она.'); return; }
+  const ctx = AC(); ctx.resume(); stopPreview(); stopSong();
+  C.t0 = ctx.currentTime + .8; C.offs = []; C.inside = new Map();
+  C.nodes = Array.from({ length:C.beats }, (_, k) => click(C.t0 + k*C.b, k % 4 === 0));
+  G.mode = 'calib'; $('#menu').hidden = true;
+};
+function calibEvent(at){
+  const tt = calibTime(at), k = Math.round(tt/C.b);
+  C.flash = performance.now();
+  if (k < C.lead || k >= C.beats) return;
+  const off = tt - k*C.b; if (Math.abs(off) < .35) C.offs.push(off);
+}
+function updateCalib(){
+  for (const sh of shots.splice(0)) if (sh.side !== 'any') calibEvent(sh.at);
+  if (S.point !== 'gun'){
+    const R = radius()*1.35;
+    for (const h of hands.values()){ const inside = Math.hypot(h.x - W/2, h.y - H/2) <= R; if (inside && !C.inside.get(h.id)) calibEvent(audioNow()); C.inside.set(h.id, inside); }
+  }
+  if (calibTime(actx.currentTime) > C.beats*C.b + .4) endCalib(true);
+}
+function endCalib(done){
+  for (const n of C.nodes) try { n.stop(); } catch {}
+  G.mode = 'menu'; $('#menu').hidden = false;
+  if (!done) return;
+  const o = C.offs.slice().sort((a, b) => a - b);
+  if (o.length < 6){ toast(`Засчитано ударов в такт: ${o.length} из 16. Нужно хотя бы 6, попробуй ещё раз.`); return; }
+  const med = o[Math.floor(o.length/2)];
+  S.lat = clamp(Math.round(med*1000/5)*5, 0, 250); save(); syncInputs();
+  toast(`Задержка камеры: ${S.lat} мс, по ${o.length} ударам.`);
+}
+function drawCalib(){
+  const tt = calibTime(actx.currentTime), k = Math.floor(tt/C.b), fr = tt/C.b - k, R = radius()*1.35, cx = W/2, cy = H/2;
+  const toNext = 1 - fr, lead = k < C.lead - 1;
+  g.globalAlpha = 1; g.strokeStyle = '#ff4fa3'; g.lineWidth = 3;
+  g.beginPath(); g.arc(cx, cy, R*(1 + 2*toNext), 0, TAU); g.stroke();
+  const hit = performance.now() - C.flash < 150;
+  g.fillStyle = hit ? '#ffffff' : '#ff4fa3'; g.globalAlpha = fr < .15 ? 1 : .8;
+  g.beginPath(); g.arc(cx, cy, R, 0, TAU); g.fill();
+  g.globalAlpha = 1; g.lineWidth = 5; g.strokeStyle = '#ffffff'; g.stroke();
+  g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = hit ? '#ff4fa3' : '#ffffff';
+  g.font = `800 ${Math.round(R*.6)}px Unbounded, sans-serif`;
+  g.fillText(lead || tt < 0 ? Math.max(1, C.lead - Math.max(0, k + 1)) : '•', cx, cy + 2);
+  g.fillStyle = '#f4effc'; g.font = '700 22px Unbounded, sans-serif';
+  g.fillText(S.point === 'gun' ? 'Стреляй ровно в щелчок' : 'Касайся круга ровно в щелчок', cx, cy - R*3.1);
+  g.font = '500 15px Onest, sans-serif'; g.fillStyle = 'rgba(244,239,252,.7)';
+  g.fillText(lead || tt < 0 ? 'Сначала просто послушай четыре щелчка' : `Засчитано: ${C.offs.length} · Esc отмена`, cx, cy + R*3.1);
+}
+
+let infoT = 0;
+function trackInfo(){
+  if (!landmarker || performance.now() - infoT < 500) return; infoT = performance.now();
+  const f = Math.round(trackFps), lag = Math.round(audioLag()*1000);
+  let txt = `Трекинг ${f} к/с: ${f >= 25 ? 'хорошо' : f >= 18 ? 'терпимо, лучше добавить света' : 'мало. Добавь света или закрой лишние вкладки'}.`;
+  if (lag > 60) txt += ` Звук опаздывает на ${lag} мс (похоже на Bluetooth), игра это учтёт.`;
+  $('#camInfo').textContent = txt;
+}
 function frame(){
-  requestAnimationFrame(frame);
+  requestAnimationFrame(frame); trackInfo();
   updateHands(); drawVideo();
-  if (G.mode === 'play') updateGame(); else shots.length = 0;
-  if (G.mode === 'play' || G.mode === 'pause') drawGame(); else if (G.mode === 'menu') drawMenuScene();
+  if (G.mode === 'play') updateGame(); else if (G.mode === 'calib') updateCalib(); else shots.length = 0;
+  if (G.mode === 'play' || G.mode === 'pause') drawGame(); else if (G.mode === 'menu') drawMenuScene(); else if (G.mode === 'calib') drawCalib();
   drawCursors();
 }
 syncInputs();
