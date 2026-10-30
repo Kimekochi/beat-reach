@@ -138,7 +138,8 @@ kbd{font-family:var(--mono);font-size:11.5px;border:1px solid var(--line);border
       <select id="point"><option value="gun">Пистолетом: целься и стреляй</option><option value="palm">Касанием центра ладони</option><option value="tip">Касанием кончика указательного</option></select></label>
     <p class="hint" id="gunHint">Сложи пистолет: указательный смотрит вперёд, большой палец вверх. Резко опусти большой палец к указательному, это выстрел. Мышью стреляй кликом.</p>
     <label class="check"><input type="checkbox" id="strict"><span>Бить только своей рукой<small>Левой розовые круги, правой голубые</small></span></label>
-    <label class="check"><input type="checkbox" id="swap"><span>Поменять руки местами<small>Если курсор левой руки голубой</small></span></label>
+    <label class="check"><input type="checkbox" id="swap"><span>Поменять руки местами<small>Игра определяет руки сама, когда видит обе. Включи, если над левой рукой всё равно «П»</small></span></label>
+    <label class="check"><input type="checkbox" id="mirror"><span>Зеркальное видео<small>Выключи, если ведёшь руку вправо, а курсор уходит влево</small></span></label>
     <label class="range" id="trigWrap"><span>Курок срабатывает <i id="trigV"></i></span><input id="trig" type="range" min="20" max="60" value="38"></label>
     <label class="range"><span>Размер поля <i id="fieldV"></i></span><input id="field" type="range" min="50" max="100" value="80"></label>
     <label class="range"><span>Задержка камеры <i id="latV"></i></span><input id="lat" type="range" min="0" max="250" step="5" value="60"></label>
@@ -193,8 +194,8 @@ function resize(){ const d = Math.min(2, devicePixelRatio || 1); W = innerWidth;
 addEventListener('resize', resize); resize();
 
 /* ---------- settings ---------- */
-const S = { bpm:120, offset:0, diff:'normal', seed:'neon', point:'gun', field:80, lat:60, dim:40, vol:80, trig:38, strict:true, swap:false, cross:'some' };
-try { const s = JSON.parse(localStorage.getItem('beatreach') || '{}'); for (const k of ['diff','seed','point','field','lat','dim','vol','trig','strict','swap','cross']) if (k in s) S[k] = s[k]; } catch {}
+const S = { bpm:120, offset:0, diff:'normal', seed:'neon', point:'gun', field:80, lat:60, dim:40, vol:80, trig:38, strict:true, swap:false, cross:'some', mirror:true };
+try { const s = JSON.parse(localStorage.getItem('beatreach') || '{}'); for (const k of ['diff','seed','point','field','lat','dim','vol','trig','strict','cross','mirror']) if (k in s) S[k] = s[k]; } catch {}
 function save(){ try { const { bpm, offset, ...rest } = S; localStorage.setItem('beatreach', JSON.stringify(rest)); } catch {} }
 
 let toastT;
@@ -504,7 +505,7 @@ async function makeDemo(){
 function syncInputs(){
   $('#bpm').value = S.bpm; $('#offset').value = S.offset; $('#seed').value = S.seed; $('#point').value = S.point;
   for (const k of ['field','lat','dim','vol','trig']) $('#'+k).value = S[k];
-  $('#cross').value = S.cross; $('#strict').checked = S.strict; $('#swap').checked = S.swap;
+  $('#cross').value = S.cross; $('#strict').checked = S.strict; $('#swap').checked = S.swap; $('#mirror').checked = S.mirror;
   $('#trigV').textContent = S.trig < 32 ? 'туго' : S.trig > 46 ? 'легко' : 'средне';
   $('#gunHint').hidden = $('#trigWrap').hidden = S.point !== 'gun';
   $('#fieldV').textContent = S.field + '%'; $('#latV').textContent = S.lat + ' мс'; $('#dimV').textContent = S.dim + '%'; $('#volV').textContent = S.vol + '%';
@@ -528,7 +529,7 @@ $('#seed').onchange = e => { S.seed = e.target.value.trim() || 'neon'; save(); s
 $('#reroll').onclick = () => { const w = ['neon','tide','orbit','ember','prism','drift','pulse','comet','echo','flux','nova','rift']; S.seed = w[Math.floor(Math.random()*w.length)] + Math.floor(Math.random()*100); save(); syncInputs(); regen(); };
 $('#cross').onchange = e => { S.cross = e.target.value; save(); regen(); };
 $('#point').onchange = e => { S.point = e.target.value; save(); syncInputs(); };
-for (const k of ['strict','swap']) $('#'+k).onchange = e => { S[k] = e.target.checked; save(); };
+for (const k of ['strict','swap','mirror']) $('#'+k).onchange = e => { S[k] = e.target.checked; save(); if (k === 'mirror'){ labelTrust = 0; labelFlip = false; hands.clear(); } };
 for (const k of ['field','lat','dim','vol','trig']) $('#'+k).oninput = e => { S[k] = +e.target.value; save(); syncInputs(); if (k === 'vol' && master) master.gain.value = (S.vol/100) ** 1.5; };
 
 /* metronome preview */
@@ -596,7 +597,7 @@ function readTrigger(h, wl){
   else if (h.cocked && h.ratio < fireT){ h.cocked = false; if (indexOut){ const a = h.aim || h; fire(a.x, a.y, h.side); } }
 }
 // One Euro filter: heavy smoothing while the hand is still, almost none while it moves fast
-let trackFps = 30;
+let trackFps = 30, labelTrust = 0, labelFlip = false;
 function oneEuro(h, x, y, dt){
   const gun = S.point === 'gun', minCut = gun ? .9 : 1.4, beta = gun ? .003 : .005;
   const alpha = fc => { const tau = 1/(2*Math.PI*fc); return 1/(1 + tau/dt); };
@@ -618,11 +619,20 @@ function updateHands(){
       const R = videoRect(), hd = res.handednesses || res.handedness || [];
       const dets = (res.landmarks || []).map((lm, i) => {
         const cat = hd[i] && hd[i][0], lab = cat ? cat.categoryName : '', sc = cat ? cat.score : .5;
-        // MediaPipe labels hands as if the frame were a mirrored selfie; ours is raw, so its "Left" is the player's right hand
-        let pr = lab === 'Left' ? sc : lab === 'Right' ? 1 - sc : .5; if (S.swap) pr = 1 - pr;
+        // raw label from MediaPipe; whether it needs flipping depends on the camera, so it is learned below
+        const pr0 = lab === 'Right' ? sc : lab === 'Left' ? 1 - sc : .5;
         const p = S.point === 'palm' ? { x:(lm[0].x+lm[5].x+lm[9].x+lm[17].x)/4, y:(lm[0].y+lm[5].y+lm[9].y+lm[17].y)/4 } : lm[8];
-        return { lm, wl: (res.worldLandmarks || [])[i] || lm, sx: W - (R.ox + p.x*R.dw), sy: R.oy + p.y*R.dh, pr };
+        const vx = R.ox + p.x*R.dw;
+        return { lm, wl: (res.worldLandmarks || [])[i] || lm, sx: S.mirror ? W - vx : vx, sy: R.oy + p.y*R.dh, pr0 };
       });
+      // Learn the label direction: with both hands well apart, the one on the right of the screen is the right hand.
+      // Votes decay slowly, so a short arm crossing can't flip it.
+      if (dets.length === 2 && Math.abs(dets[0].sx - dets[1].sx) > W*.3 && Math.abs(dets[0].pr0 - dets[1].pr0) > .3){
+        const rightOne = dets[0].sx > dets[1].sx ? dets[0] : dets[1];
+        labelTrust = clamp(labelTrust*.98 + (rightOne.pr0 > .5 ? .02 : -.02), -1, 1);
+        if (labelTrust < -.3) labelFlip = true; else if (labelTrust > .3) labelFlip = false;
+      }
+      for (const d of dets){ const flip = labelFlip !== S.swap; d.pr = flip ? 1 - d.pr0 : d.pr0; }
       // keep each tracked hand attached to its detection; when arms cross, the left/right label decides, not just distance
       const free = [...hands.values()], diag = Math.hypot(W, H);
       const cost = (h, d) => Math.hypot(h.x - d.sx, h.y - d.sy)/diag + .6*Math.abs(h.pr - d.pr);
@@ -794,7 +804,7 @@ function finish(){
 function drawVideo(){
   g.fillStyle = '#0f0b18'; g.fillRect(0, 0, W, H);
   if (camOK && video.readyState >= 2 && S.dim > 0){
-    const R = videoRect(); g.save(); g.globalAlpha = S.dim/100; g.translate(W, 0); g.scale(-1, 1);
+    const R = videoRect(); g.save(); g.globalAlpha = S.dim/100; if (S.mirror){ g.translate(W, 0); g.scale(-1, 1); }
     g.drawImage(video, R.ox, R.oy, R.dw, R.dh); g.restore();
   }
   const vg = g.createRadialGradient(W/2, H/2, Math.min(W, H)*.3, W/2, H/2, Math.max(W, H)*.75);
