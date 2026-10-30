@@ -570,7 +570,7 @@ function syncInputs(){
   $('#fireMode').value = S.fireMode; $('#kit').value = S.kit;
   $('#flickV').textContent = S.flick < 44 ? 'от лёгкого рывка' : S.flick > 66 ? 'от сильного рывка' : 'средне';
   $('#gunHint').textContent = S.fireMode === 'flick'
-    ? 'Сложи пистолет и целься указательным. Держать можно как удобно: стволом в экран или вверх. Выстрел: резко дёрни кисть, как при отдаче, ствол уходит в сторону большого пальца, и верни обратно. Пуля уйдёт туда, куда ты целился до рывка. Мышью стреляй кликом.'
+    ? 'Сложи пистолет: указательный в экран, большой палец вверх. Прицел стоит на костяшке указательного. Выстрел: резко дёрни кисть вверх, как при отдаче, и верни обратно. Пуля уйдёт туда, куда ты целился до рывка. Мышью стреляй кликом.'
     : 'Сложи пистолет: указательный вперёд, большой палец вверх. Выстрел: резко опусти большой палец к указательному. Мышью стреляй кликом.';
   $('#fieldV').textContent = S.field + '%'; $('#latV').textContent = S.lat + ' мс'; $('#dimV').textContent = S.dim + '%'; $('#volV').textContent = S.vol + '%';
   document.querySelectorAll('#diff button').forEach(btn => btn.setAttribute('aria-pressed', btn.dataset.v === S.diff));
@@ -655,13 +655,14 @@ const d3 = (a, b) => Math.hypot(a.x - b.x, a.y - b.y, (a.z || 0) - (b.z || 0));
 const sub3 = (a, b) => ({ x: a.x - b.x, y: a.y - b.y, z: (a.z || 0) - (b.z || 0) }), dot3 = (a, b) => a.x*b.x + a.y*b.y + a.z*b.z;
 const unit = v => { const l = Math.hypot(v.x, v.y, v.z) || 1; return { x: v.x/l, y: v.y/l, z: v.z/l }; };
 // Two ways to shoot with a finger gun.
-// "flick" (default): a sharp upward jerk of the hand, like recoil. It is measured as how fast the fingertip rises
-// above the wrist, in palm lengths, so moving the whole arm to aim does not count, only the wrist snap does.
+// "flick" (default): a sharp recoil snap of the hand. A finger pointed straight at the camera is mostly hidden behind
+// its own knuckles, so its tip is unreliable; everything here uses points the camera sees well in any pose:
+// the wrist, the index and middle knuckles, and the thumb tip.
 // "thumb": drop the raised thumb onto the index finger.
 function readGun(h, lm, wl){
-  const indexOut = d3(wl[8], wl[0]) > d3(wl[6], wl[0]) * 1.1;
-  h.gun = indexOut;
   if (S.fireMode === 'thumb'){
+    const indexOut = d3(wl[8], wl[0]) > d3(wl[5], wl[0]) * 1.05;           // only rules out a closed fist
+    h.gun = indexOut;
     const ratio = Math.min(d3(wl[4], wl[5]), d3(wl[4], wl[6])) / (d3(wl[0], wl[9]) || 1);
     h.ratio = h.ratio == null ? ratio : h.ratio + (ratio - h.ratio)*.6;
     const fireT = S.trig/100, cockT = fireT + .15;
@@ -670,16 +671,19 @@ function readGun(h, lm, wl){
     else if (h.cocked && h.ratio < fireT){ h.cocked = false; if (indexOut){ const a = h.aim || h; fire(a.x, a.y, h.side); } }
     return;
   }
+  h.gun = true;
   const vw = video.videoWidth || 1, vh = video.videoHeight || 1, now = performance.now();
-  // signal 1: the fingertip jumps up above the wrist on screen (gun pointed at the camera, flicked up)
-  const palm = Math.hypot((lm[0].x - lm[9].x)*vw, (lm[0].y - lm[9].y)*vh) || 1;
-  const up = (lm[0].y - lm[8].y)*vh/palm;                    // fingertip height above the wrist, in palm lengths
-  // signal 2: the barrel (index finger) snaps toward the thumb side in 3D, whatever way the gun points.
-  // Works for a gun held upright too, where the recoil tips the finger back toward you instead of up the screen.
-  const bar = unit(sub3(wl[8], wl[5]));
-  let gunUp = sub3(wl[4], wl[5]); const along = dot3(gunUp, bar);
+  // hand size on screen: the least foreshortened of a few spans, so it holds up whichever way the hand faces
+  const px = (a, b) => Math.hypot((lm[a].x - lm[b].x)*vw, (lm[a].y - lm[b].y)*vh);
+  const size = Math.max(px(0, 9), px(5, 17), px(0, 5)) || 1;
+  // signal 1: on screen, the knuckles and thumb jump up above the wrist
+  const up = (lm[0].y - (lm[5].y + lm[4].y)/2)*vh/size;
+  // signal 2: in 3D, the whole hand (wrist -> knuckles) snaps toward the thumb side, whatever way the gun points
+  const kn = { x:(wl[5].x + wl[9].x)/2, y:(wl[5].y + wl[9].y)/2, z:((wl[5].z || 0) + (wl[9].z || 0))/2 };
+  const bar = unit(sub3(kn, wl[0]));
+  let gunUp = sub3(wl[4], kn); const along = dot3(gunUp, bar);
   gunUp = { x: gunUp.x - along*bar.x, y: gunUp.y - along*bar.y, z: gunUp.z - along*bar.z };
-  gunUp = Math.hypot(gunUp.x, gunUp.y, gunUp.z) > .012 ? unit(gunUp) : null;   // thumb too close to the barrel to tell "up"
+  gunUp = Math.hypot(gunUp.x, gunUp.y, gunUp.z) > .012 ? unit(gunUp) : null;   // thumb too close to tell which way is up
   const hist = h.fh || (h.fh = []); hist.push({ t:now, up, x:h.x, y:h.y, bar, gunUp });
   while (hist.length > 1 && now - hist[0].t > 170) hist.shift();
   let lo = hist[0]; for (const q of hist) if (q.up < lo.up) lo = q;
@@ -690,10 +694,10 @@ function readGun(h, lm, wl){
     const d = sub3(bar, q.bar), dl = Math.hypot(d.x, d.y, d.z) || 1;
     if (!q.gunUp || dot3(d, q.gunUp) > .5*dl){ turn = ang; turnFrom = q; }       // mostly toward the thumb, not sideways
   }
-  const rise = up - lo.up, thr = S.flick/100, turnThr = S.flick*.45*Math.PI/180;   // 54 -> 0.54 palm or ~24 degrees
+  const rise = up - lo.up, thr = S.flick/100*.8, turnThr = S.flick*.45*Math.PI/180;   // default: 0.43 hand sizes or ~24 degrees
   h.meter = clamp(Math.max(rise/thr, turn/turnThr), 0, 1);
   if (h.armed === undefined) h.armed = true;
-  if (h.armed && indexOut && (rise > thr || turn > turnThr)){
+  if (h.armed && (rise > thr || turn > turnThr)){
     h.armed = false; h.firedAt = now;
     const from = rise/thr >= turn/turnThr ? lo : turnFrom;  // aim from where the flick began
     fire(from.x, from.y, h.side);
@@ -725,7 +729,9 @@ function updateHands(){
         const cat = hd[i] && hd[i][0], lab = cat ? cat.categoryName : '', sc = cat ? cat.score : .5;
         // raw label from MediaPipe; whether it needs flipping depends on the camera, so it is learned below
         const pr0 = lab === 'Right' ? sc : lab === 'Left' ? 1 - sc : .5;
-        const p = S.point === 'palm' ? { x:(lm[0].x+lm[5].x+lm[9].x+lm[17].x)/4, y:(lm[0].y+lm[5].y+lm[9].y+lm[17].y)/4 } : lm[8];
+        // aim point: palm centre, the index knuckle for the gun (the fingertip hides when it points at the camera), or the fingertip
+        const p = S.point === 'palm' ? { x:(lm[0].x+lm[5].x+lm[9].x+lm[17].x)/4, y:(lm[0].y+lm[5].y+lm[9].y+lm[17].y)/4 }
+          : S.point === 'gun' ? lm[5] : lm[8];
         const vx = R.ox + p.x*R.dw;
         return { lm, wl: (res.worldLandmarks || [])[i] || lm, sx: S.mirror ? W - vx : vx, sy: R.oy + p.y*R.dh, pr0 };
       });
