@@ -1,0 +1,941 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Beat Reach</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;800&family=Onest:wght@400;500;600&family=JetBrains+Mono:wght@500;700&display=swap">
+<style>
+/* Layout: full-screen camera canvas as the stage, settings panel docked left, overlays centered */
+:root{
+  --ink:#0f0b18; --panel:rgba(21,16,33,.88); --panel-solid:#1a1429; --well:#120e1d;
+  --btn:#241c36; --line:rgba(236,226,255,.11); --fg:#f4effc; --muted:#a69cba;
+  --pink:#ff4fa3; --cyan:#47e1ff; --amber:#ffc24a; --violet:#9b7bff; --red:#ff5c6c;
+  --display:'Unbounded',system-ui,sans-serif; --body:'Onest',system-ui,sans-serif; --mono:'JetBrains Mono',ui-monospace,monospace;
+  color-scheme:dark;
+}
+[hidden]{display:none!important}
+html,body{height:100%;margin:0;background:var(--ink);color:var(--fg);font-family:var(--body);font-size:14px;overflow:hidden}
+#c{position:fixed;inset:0;width:100%;height:100%;display:block}
+#v{position:fixed;width:1px;height:1px;opacity:0;pointer-events:none}
+#menu{position:fixed;top:0;left:0;bottom:0;width:min(392px,100%);box-sizing:border-box;overflow-y:auto;
+  background:var(--panel);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-right:1px solid var(--line);
+  padding:26px 22px 22px;display:flex;flex-direction:column;gap:16px}
+.logo{display:flex;align-items:center;gap:14px}
+.ring{flex:none;width:26px;height:26px;border-radius:50%;background:var(--pink);border:3px solid #fff;outline:2px solid var(--pink);outline-offset:5px}
+h1{font-family:var(--display);font-weight:800;font-size:25px;letter-spacing:-.01em;margin:0}
+.tag{color:var(--muted);margin:10px 0 0;line-height:1.5}
+section{display:flex;flex-direction:column;gap:10px;padding-top:16px;border-top:1px solid var(--line)}
+h2{display:flex;gap:10px;align-items:baseline;font-family:var(--display);font-weight:500;font-size:12px;letter-spacing:.14em;text-transform:uppercase;margin:0 0 2px}
+h2 b{font-family:var(--mono);color:var(--pink);font-weight:700;letter-spacing:0}
+button{font:inherit;color:var(--fg);background:var(--btn);border:1px solid var(--line);border-radius:10px;padding:9px 12px;cursor:pointer;transition:border-color .15s,background .15s}
+button:hover:not(:disabled){border-color:rgba(236,226,255,.3)}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
+.ghost{background:transparent}
+.file{position:relative;display:block}
+.file input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer}
+.file span{display:block;text-align:center;padding:13px;border:1.5px dashed rgba(255,79,163,.65);border-radius:12px;font-weight:600}
+.file:hover span{background:rgba(255,79,163,.08)}
+.file:focus-within span{outline:2px solid var(--cyan);outline-offset:2px}
+.info{font-size:13px;color:var(--muted);line-height:1.5;font-variant-numeric:tabular-nums;min-height:1.5em}
+.info b{color:var(--fg);font-weight:600;word-break:break-word}
+.row{display:flex;gap:8px;align-items:flex-end}
+.field{display:flex;flex-direction:column;gap:5px;flex:1;min-width:0}
+.field>span,.range>span{font-size:12px;color:var(--muted);letter-spacing:.03em}
+input[type=number],input[type=text],select{background:var(--well);border:1px solid var(--line);border-radius:10px;color:var(--fg);
+  font:500 15px var(--mono);padding:9px 10px;width:100%;box-sizing:border-box}
+select{font-family:var(--body);font-size:14px}
+.btns button{flex:1;padding:9px 6px;font-family:var(--mono);font-size:13px}
+.seg{display:grid;grid-template-columns:repeat(3,1fr);background:var(--well);border-radius:12px;padding:4px;gap:4px;border:1px solid var(--line)}
+.seg button{border:0;background:transparent;border-radius:9px;padding:8px 4px;font-weight:600;color:var(--muted)}
+.seg button[aria-pressed=true]{background:var(--fg);color:var(--ink)}
+.range{display:flex;flex-direction:column;gap:6px}
+.check{display:flex;gap:10px;align-items:flex-start;cursor:pointer;line-height:1.35}
+.check input{accent-color:var(--pink);width:18px;height:18px;margin:1px 0 0;flex:none}
+.check small{display:block;color:var(--muted);font-size:12px;margin-top:2px}
+.range>span{display:flex;justify-content:space-between}
+.range i{font-style:normal;font-family:var(--mono);color:var(--fg)}
+input[type=range]{accent-color:var(--pink);width:100%;margin:0}
+.start{font-family:var(--display);font-weight:800;font-size:19px;letter-spacing:.02em;background:var(--pink);color:#22051a;border:0;border-radius:14px;padding:16px;box-shadow:0 10px 30px -10px rgba(255,79,163,.8);margin-top:4px}
+.start:hover:not(:disabled){background:#ff6ab2}
+.start:disabled{opacity:.3;cursor:not-allowed;box-shadow:none}
+.hint{font-size:12.5px;color:var(--muted);margin:0;line-height:1.5}
+kbd{font-family:var(--mono);font-size:11.5px;border:1px solid var(--line);border-bottom-width:2px;border-radius:5px;padding:1px 5px;color:var(--fg)}
+.overlay{position:fixed;inset:0;display:grid;place-items:center;background:rgba(9,6,15,.62);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);padding:16px}
+.card{background:var(--panel-solid);border:1px solid var(--line);border-radius:22px;padding:28px;width:min(440px,100%);box-sizing:border-box;display:flex;flex-direction:column;gap:18px}
+.card h3{font-family:var(--display);font-weight:700;font-size:22px;margin:0}
+.card .acts{display:flex;gap:8px;flex-wrap:wrap}
+.card .acts button{flex:1;padding:12px;font-weight:600}
+.card .acts .pri{background:var(--pink);color:#22051a;border:0}
+.res-top{display:flex;align-items:center;gap:22px}
+.grade{font-family:var(--display);font-weight:800;font-size:92px;line-height:.9;min-width:1ch}
+.res-score{font-family:var(--mono);font-weight:700;font-size:28px;font-variant-numeric:tabular-nums}
+.res-acc{color:var(--muted);font-family:var(--mono);margin-top:4px}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;text-align:center}
+.stats div{background:var(--well);border-radius:12px;padding:10px 4px}
+.stats b{display:block;font-family:var(--mono);font-size:20px;font-variant-numeric:tabular-nums}
+.stats span{font-size:11.5px;color:var(--muted);letter-spacing:.05em}
+.calib{background:var(--well);border-radius:12px;padding:12px 14px;line-height:1.5;color:var(--muted);display:flex;gap:10px;align-items:center;justify-content:space-between}
+.calib button{flex:none}
+#toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:var(--panel-solid);border:1px solid var(--line);border-radius:12px;padding:11px 16px;max-width:calc(100% - 32px);box-sizing:border-box;opacity:0;transition:opacity .2s;pointer-events:none}
+#toast.on{opacity:1}
+@media (max-width:700px){#menu{width:100%}}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<video id="v" playsinline muted></video>
+
+<div id="menu">
+  <header>
+    <div class="logo"><span class="ring" aria-hidden="true"></span><h1>Beat Reach</h1></div>
+    <p class="tag">Ритм-игра для вебки. Круги появляются в такт музыке, касайся их рукой, когда внешнее кольцо сожмётся до края.</p>
+  </header>
+
+  <section>
+    <h2><b>1</b>Трек</h2>
+    <label class="file"><input type="file" id="file" accept="audio/*"><span>Загрузить песню</span></label>
+    <button id="demo" class="ghost">Или сыграть демо-бит, 124 BPM</button>
+    <div id="trackInfo" class="info">Трек не выбран</div>
+  </section>
+
+  <section>
+    <h2><b>2</b>Ритм</h2>
+    <div class="row">
+      <label class="field"><span>BPM</span><input id="bpm" type="number" min="40" max="300" step="0.5" value="120"></label>
+      <label class="field"><span>Офсет первой доли, мс</span><input id="offset" type="number" step="5" value="0"></label>
+    </div>
+    <div class="row btns">
+      <button id="half" title="Уменьшить темп вдвое">÷2</button>
+      <button id="dbl" title="Увеличить темп вдвое">×2</button>
+      <button id="tap" title="Нажимай в такт">Тап</button>
+      <button id="auto" title="Вернуть найденное автоматически">Авто</button>
+    </div>
+    <button id="preview" class="ghost" disabled>Проверить с метрономом</button>
+    <p class="hint">Щелчки должны совпадать с ударными. Если спешат или опаздывают, двигай офсет. Если щелчков вдвое больше или меньше, жми ÷2 или ×2.</p>
+  </section>
+
+  <section>
+    <h2><b>3</b>Карта</h2>
+    <div class="seg" id="diff" role="group" aria-label="Сложность">
+      <button data-v="easy">Лёгкая</button><button data-v="normal">Средняя</button><button data-v="hard">Сложная</button>
+    </div>
+    <div class="row">
+      <label class="field"><span>Сид генерации</span><input id="seed" type="text" value="neon" spellcheck="false"></label>
+      <button id="reroll">Новый</button>
+    </div>
+    <label class="field"><span>Скрещивание рук</span>
+      <select id="cross"><option value="none">Без скрещиваний</option><option value="some">Иногда</option><option value="often">Часто</option></select></label>
+    <div id="mapInfo" class="info">Загрузи трек, и карта соберётся сама.</div>
+  </section>
+
+  <section>
+    <h2><b>4</b>Руки</h2>
+    <button id="cam">Включить камеру</button>
+    <div id="camInfo" class="info">Без камеры можно играть мышкой.</div>
+    <label class="field"><span>Чем касаться</span>
+      <select id="point"><option value="gun">Пистолетом: целься и стреляй</option><option value="palm">Касанием центра ладони</option><option value="tip">Касанием кончика указательного</option></select></label>
+    <p class="hint" id="gunHint">Сложи пистолет: указательный смотрит вперёд, большой палец вверх. Резко опусти большой палец к указательному, это выстрел. Мышью стреляй кликом.</p>
+    <label class="check"><input type="checkbox" id="strict"><span>Бить только своей рукой<small>Левой розовые круги, правой голубые</small></span></label>
+    <label class="check"><input type="checkbox" id="swap"><span>Поменять руки местами<small>Если курсор левой руки голубой</small></span></label>
+    <label class="range" id="trigWrap"><span>Курок срабатывает <i id="trigV"></i></span><input id="trig" type="range" min="20" max="60" value="38"></label>
+    <label class="range"><span>Размер поля <i id="fieldV"></i></span><input id="field" type="range" min="50" max="100" value="80"></label>
+    <label class="range"><span>Задержка камеры <i id="latV"></i></span><input id="lat" type="range" min="0" max="250" step="5" value="60"></label>
+    <label class="range"><span>Яркость видео <i id="dimV"></i></span><input id="dim" type="range" min="0" max="100" value="40"></label>
+    <label class="range"><span>Громкость <i id="volV"></i></span><input id="vol" type="range" min="0" max="100" value="80"></label>
+  </section>
+
+  <button id="start" class="start" disabled>Играть</button>
+  <p class="hint"><kbd>Esc</kbd> пауза. Встань так, чтобы обе руки помещались в кадр, а пунктирная рамка была в зоне досягаемости.</p>
+</div>
+
+<div id="pause" class="overlay" hidden>
+  <div class="card">
+    <h3>Пауза</h3>
+    <div class="acts">
+      <button id="resume" class="pri">Продолжить</button>
+      <button id="retry1">Заново</button>
+      <button id="tomenu1">В меню</button>
+    </div>
+  </div>
+</div>
+
+<div id="results" class="overlay" hidden>
+  <div class="card">
+    <div class="res-top">
+      <div class="grade" id="rGrade">A</div>
+      <div><div class="res-score" id="rScore">0</div><div class="res-acc" id="rAcc"></div></div>
+    </div>
+    <div class="stats">
+      <div><b id="r300" style="color:var(--cyan)">0</b><span>300</span></div>
+      <div><b id="r100" style="color:#7dffb0">0</b><span>100</span></div>
+      <div><b id="r50" style="color:var(--amber)">0</b><span>50</span></div>
+      <div><b id="rMiss" style="color:var(--red)">0</b><span>МИМО</span></div>
+    </div>
+    <div class="calib" id="rCalib" hidden><span id="rCalibText"></span><button id="rApply">Применить</button></div>
+    <div class="acts">
+      <button id="retry2" class="pri">Ещё раз</button>
+      <button id="tomenu2">В меню</button>
+    </div>
+  </div>
+</div>
+<div id="toast" role="status"></div>
+
+<script type="module">
+const $ = s => document.querySelector(s);
+const cv = $('#c'), g = cv.getContext('2d'), video = $('#v');
+const TAU = Math.PI * 2;
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+let W = 0, H = 0;
+function resize(){ const d = Math.min(2, devicePixelRatio || 1); W = innerWidth; H = innerHeight; cv.width = Math.round(W*d); cv.height = Math.round(H*d); g.setTransform(d,0,0,d,0,0); }
+addEventListener('resize', resize); resize();
+
+/* ---------- settings ---------- */
+const S = { bpm:120, offset:0, diff:'normal', seed:'neon', point:'gun', field:80, lat:60, dim:40, vol:80, trig:38, strict:true, swap:false, cross:'some' };
+try { const s = JSON.parse(localStorage.getItem('beatreach') || '{}'); for (const k of ['diff','seed','point','field','lat','dim','vol','trig','strict','swap','cross']) if (k in s) S[k] = s[k]; } catch {}
+function save(){ try { const { bpm, offset, ...rest } = S; localStorage.setItem('beatreach', JSON.stringify(rest)); } catch {} }
+
+let toastT;
+function toast(msg){ const t = $('#toast'); t.textContent = msg; t.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('on'), 3200); }
+const fmtTime = s => `${Math.floor(s/60)}:${String(Math.floor(s%60)).padStart(2,'0')}`;
+
+/* ---------- audio ---------- */
+let actx = null, master = null;
+function AC(){
+  if (!actx){ actx = new (window.AudioContext || window.webkitAudioContext)(); master = actx.createGain(); master.connect(actx.destination); }
+  master.gain.value = (S.vol/100) ** 1.5;
+  return actx;
+}
+
+/*CORE*/
+function analyze(buf){
+  const sr = buf.sampleRate, hop = 512, n = Math.floor(buf.length/hop), fps = sr/hop;
+  const chs = []; for (let c = 0; c < Math.min(2, buf.numberOfChannels); c++) chs.push(buf.getChannelData(c));
+  const nc = chs.length, env = new Float32Array(n);
+  for (let i = 0; i < n; i++){
+    let s = 0; const o = i*hop;
+    for (let j = 0; j < hop; j += 2){ let v = 0; for (let c = 0; c < nc; c++) v += chs[c][o+j]; v /= nc; s += v*v; }
+    env[i] = Math.log1p(100*Math.sqrt(s/(hop/2)));
+  }
+  const raw = new Float32Array(n); for (let i = 1; i < n; i++) raw[i] = Math.max(0, env[i]-env[i-1]);
+  const w = Math.max(2, Math.round(fps*0.25)), pre = new Float64Array(n+1);
+  for (let i = 0; i < n; i++) pre[i+1] = pre[i] + raw[i];
+  const on = new Float32Array(n);
+  for (let i = 0; i < n; i++){ const a = Math.max(0, i-w), b = Math.min(n, i+w+1); on[i] = Math.max(0, raw[i] - (pre[b]-pre[a])/(b-a)); }
+
+  // tempo: autocorrelation of the onset curve
+  const maxLag = Math.ceil(fps*4) + 2;
+  const st = Math.floor(n*0.08), len = Math.min(n - st - maxLag - 1, Math.round(fps*150));
+  const ac = new Float32Array(maxLag+2);
+  if (len > fps*4) for (let L = 1; L <= maxLag; L++){ let s = 0; for (let i = st; i < st+len; i++) s += on[i]*on[i+L]; ac[L] = s; }
+  const acI = L => { if (L < 1 || L >= maxLag) return 0; const a = Math.floor(L), f = L-a; return ac[a]*(1-f) + ac[a+1]*f; };
+  let bestS = 0, bpm = 120;
+  for (let x = 60; x <= 200; x += 0.1){
+    const L = 60*fps/x, pref = Math.exp(-0.5*(Math.log2(x/125)/0.7)**2);
+    const s = (acI(L) + 0.5*acI(2*L) + 0.25*acI(4*L) + 0.3*acI(L/2)) * (0.4 + 0.6*pref);
+    if (s > bestS){ bestS = s; bpm = x; }
+  }
+  while (bpm < 80) bpm *= 2; while (bpm > 185) bpm /= 2;
+
+  // refine tempo + phase together with a beat comb over the whole song
+  const comb = x => { const P = 60*fps/x; let best = -1, bp = 0;
+    for (let ph = 0; ph < P; ph += 0.5){ let s = 0; for (let k = ph; k < n; k += P){ const i = Math.round(k); s += Math.max(on[i] || 0, .7*(on[i-1] || 0), .7*(on[i+1] || 0)); } if (s > best){ best = s; bp = ph; } }
+    return [best, bp]; };
+  let bestC = -1, bestP = 0, coarse = bpm;
+  for (let x = coarse - 1.5; x <= coarse + 1.5; x += 0.05){ const [s, ph] = comb(x); if (s > bestC){ bestC = s; bpm = x; bestP = ph; } }
+  const r = Math.round(bpm);
+  if (Math.abs(bpm - r) < 0.35){ bpm = r; bestP = comb(r)[1]; } else bpm = Math.round(bpm*10)/10;
+
+  const nz = Array.from(on).filter(v => v > 0).sort((a,b) => a-b);
+  const norm = nz.length ? nz[Math.floor(nz.length*0.95)] || 1 : 1;
+  const es = Array.from(env).sort((a,b) => a-b), envMax = es[Math.floor(es.length*0.98)] || 1;
+  let start = 0; for (let i = 0; i < n; i++) if (env[i] > envMax*0.3){ start = i/fps; break; }
+  let gs = 0, gc = 0; for (let i = Math.floor(start*fps); i < n; i++){ gs += env[i]; gc++; }
+  return { fps, on, env, norm, envMax, envMean: gc ? gs/gc : 1, bpm, offset: bestP/fps, start, duration: buf.duration };
+}
+function strength(a, t){ const i = Math.round(t*a.fps); let m = 0; for (let k = i-3; k <= i+3; k++) if (k >= 0 && k < a.on.length) m = Math.max(m, a.on[k]); return Math.min(1.5, m/a.norm); }
+function energy(a, t0, t1){ const i0 = Math.max(0, Math.floor(t0*a.fps)), i1 = Math.min(a.env.length, Math.ceil(t1*a.fps)); if (i1 <= i0) return 0; let s = 0; for (let i = i0; i < i1; i++) s += a.env[i]; return s/(i1-i0)/a.envMean; }
+
+function hashStr(s){ let h = 1779033703 ^ s.length; for (let i = 0; i < s.length; i++){ h = Math.imul(h ^ s.charCodeAt(i), 3432918353); h = h << 13 | h >>> 19; } return h >>> 0; }
+function mulberry(a){ return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+
+// Pattern library: each returns n positions in a 0..1 field
+const PATTERNS = {
+  polygon(n, r){ const sides = [3,4,5,5][Math.floor(r()*4)], star = sides === 5 && r() < .5, stepI = star ? 2 : 1;
+    const cx = .5+(r()-.5)*.3, cy = .5+(r()-.5)*.25, rad = .28+r()*.12, a0 = r()*TAU, dir = r() < .5 ? 1 : -1;
+    return Array.from({length:n}, (_, i) => { const v = (i*stepI) % sides, a = a0 + dir*v/sides*TAU; return { x: cx+Math.cos(a)*rad, y: cy+Math.sin(a)*rad }; }); },
+  circle(n, r){ const seg = Math.max(6, Math.min(10, n)), cx = .5+(r()-.5)*.2, cy = .5+(r()-.5)*.2, rad = .3+r()*.12, a0 = r()*TAU, dir = r() < .5 ? 1 : -1;
+    return Array.from({length:n}, (_, i) => { const a = a0 + dir*i/seg*TAU; return { x: cx+Math.cos(a)*rad, y: cy+Math.sin(a)*rad }; }); },
+  zigzag(n, r){ const lr = r() < .5, y1 = .18+r()*.15, y2 = .67+r()*.15;
+    return Array.from({length:n}, (_, i) => { const f = n > 1 ? i/(n-1) : .5; return { x: .1 + .8*(lr ? f : 1-f), y: i%2 ? y2 : y1 }; }); },
+  jumps(n, r){ const s = r() < .5;
+    return Array.from({length:n}, (_, i) => { const left = (i%2 === 0) === s; return { x: left ? .06+r()*.26 : .68+r()*.26, y: .12+r()*.76 }; }); },
+  line(n, r){ const a = { x: .15+r()*.7, y: .15+r()*.7 }, ang = r()*TAU, len = .35+r()*.25;
+    const b = { x: clamp(a.x+Math.cos(ang)*len, .05, .95), y: clamp(a.y+Math.sin(ang)*len, .05, .95) }, per = Math.max(2, Math.min(n, 5));
+    return Array.from({length:n}, (_, i) => { let k = i % (2*(per-1)); if (k >= per) k = 2*(per-1) - k; const f = k/(per-1); return { x: a.x+(b.x-a.x)*f, y: a.y+(b.y-a.y)*f }; }); },
+  walk(n, r, prev){ let p = { ...prev }, ang = r()*TAU; const out = [];
+    for (let i = 0; i < n; i++){ ang += (r()-.5)*1.6; const d = .18+r()*.17; let x = p.x+Math.cos(ang)*d, y = p.y+Math.sin(ang)*d;
+      if (x < .05 || x > .95){ ang = Math.PI-ang; x = clamp(x, .05, .95); } if (y < .05 || y > .95){ ang = -ang; y = clamp(y, .05, .95); }
+      p = { x, y }; out.push(p); }
+    return out; },
+};
+const WEIGHTS = {
+  easy:   { polygon:3, circle:2, zigzag:2, walk:3, line:1 },
+  normal: { polygon:3, circle:2, zigzag:2, walk:2, line:2, jumps:2, mirror:1 },
+  hard:   { polygon:2, circle:2, zigzag:2, walk:2, line:3, jumps:3, mirror:2 },
+};
+const DIFF = {
+  easy:   { label:'Лёгкая',  step:2, half:0,   dbl:0,   ar:1.5,  cs:.095, win:1.25, jump:.42 },
+  normal: { label:'Средняя', step:1, half:.12, dbl:.05, ar:1.15, cs:.082, win:1.1,  jump:.55 },
+  hard:   { label:'Сложная', step:1, half:.4,  dbl:.1,  ar:.88,  cs:.072, win:1,    jump:.7, sl:.12 },
+};
+DIFF.easy.sl = .22; DIFF.normal.sl = .15;
+
+// Slider path: quadratic curve from the head, stored as offsets so it moves with the head
+const inField = (x, y) => x >= .04 && x <= .96 && y >= .04 && y <= .96;
+function buildPath(nt, next, r){
+  let ang = next ? Math.atan2(next.y - nt.y, next.x - nt.x) + (r() - .5)*1.4 : r()*TAU;
+  const len = Math.min(.45, .17 + r()*.12 + .08*nt.beats);
+  let ex = Math.cos(ang)*len, ey = Math.sin(ang)*len;
+  const bend = r() < .65 ? (r() - .5)*len*1.3 : 0;
+  let cx = ex/2 - Math.sin(ang)*bend, cy = ey/2 + Math.cos(ang)*bend;
+  for (let i = 0; i < 10 && !(inField(nt.x+ex, nt.y+ey) && inField(nt.x+cx, nt.y+cy)); i++){
+    if (i % 2 === 0){ ex = -ex; ey = -ey; cx = -cx; cy = -cy; } else { ex *= .75; ey *= .75; cx *= .75; cy *= .75; }
+  }
+  if (!(inField(nt.x+ex, nt.y+ey) && inField(nt.x+cx, nt.y+cy))){ ex = ey = 0; cx = cy = 0; }
+  const pts = [], cum = [0];
+  for (let i = 0; i <= 24; i++){ const u = i/24, a = 2*(1-u)*u, q = u*u; pts.push({ x: clamp(nt.x + a*cx + q*ex, .04, .96), y: clamp(nt.y + a*cy + q*ey, .04, .96) }); }
+  for (let i = 1; i < pts.length; i++) cum.push(cum[i-1] + Math.hypot(pts[i].x-pts[i-1].x, pts[i].y-pts[i-1].y));
+  nt.path = { pts, cum, total: cum.at(-1) };
+  if (nt.path.total < .05) nt.slider = false;      // nowhere to slide: becomes a plain circle
+}
+function pathAt(nt, u){
+  const P = nt.path, target = clamp(u, 0, 1)*P.total;
+  let i = 1; while (i < P.cum.length - 1 && P.cum[i] < target) i++;
+  const seg = P.cum[i] - P.cum[i-1] || 1, f = clamp((target - P.cum[i-1])/seg, 0, 1);
+  return { x: P.pts[i-1].x + (P.pts[i].x - P.pts[i-1].x)*f, y: P.pts[i-1].y + (P.pts[i].y - P.pts[i-1].y)*f };
+}
+function pick(w, r){ let tot = 0; for (const k in w) tot += w[k]; let x = r()*tot; for (const k in w){ x -= w[k]; if (x <= 0) return k; } return Object.keys(w)[0]; }
+
+function generateMap(a, opt){
+  const d = DIFF[opt.diff], b = 60/opt.bpm, off = opt.offset/1000, r = mulberry(hashStr(opt.seed + '|' + opt.diff));
+  const lastT = a.duration - 1.2;
+  let k = Math.ceil((Math.max(a.start, 1.5) - off)/b); k = Math.ceil(k/4)*4;
+  const notes = []; let prev = { x:.5, y:.5 }, phrase = 0;
+  for (; off + k*b < lastT; k += 8){
+    const tA = off + k*b, tB = Math.min(lastT, off + (k+8)*b), en = energy(a, tA, tB);
+    if (en < .3) continue;                        // near-silence: leave a break
+    const quiet = en < .65, step = quiet ? 2 : d.step, times = [], busy = [];
+    const pat = pick(WEIGHTS[opt.diff], r);
+    for (let s = 0; s < 8; s += step){
+      const t = off + (k+s)*b; if (t > lastT) break;
+      if (pat !== 'mirror' && r() < d.sl*(quiet ? 1.6 : 1)){
+        const L = step === 2 ? 2 : (r() < .55 ? 1 : 2);
+        if (s + L <= 7 && off + (k+s+L)*b < lastT){ times.push({ t, beat:s, L }); busy.push([s, s+L+.5]); s += L; continue; }
+      }
+      times.push({ t, beat:s });
+      if (d.half && !quiet){ const th = t + b/2; if (th < lastT){ const st = strength(a, th); if (st > .5 && r() < d.half + st*.25) times.push({ t:th, beat:s+.5 }); } }
+    }
+    if (step === 2 && !quiet) for (let s = 1; s < 8; s += 2){
+      if (busy.some(([a0, a1]) => s >= a0 && s <= a1)) continue;
+      const t = off + (k+s)*b; if (t < lastT && strength(a, t) > .75 && r() < .35) times.push({ t, beat:s });
+    }
+    times.sort((p, q) => p.t - q.t);
+    if (!times.length) continue;
+    let combo = 1;
+    if (pat === 'mirror'){
+      for (const tm of times){ if (tm.beat % 1) continue; const x = .06+r()*.3, y = .12+r()*.76;
+        notes.push({ t:tm.t, x, y, n:combo, c:phrase }); notes.push({ t:tm.t, x:1-x, y, n:combo, c:phrase, twin:true }); combo++; prev = { x, y }; }
+    } else {
+      const pos = PATTERNS[pat](times.length, r, prev);
+      times.forEach((tm, i) => {
+        const p = { x: clamp(pos[i].x, .04, .96), y: clamp(pos[i].y, .04, .96) };
+        const nt = { t:tm.t, x:p.x, y:p.y, n:combo++, c:phrase };
+        if (tm.L){ nt.slider = true; nt.beats = tm.L; nt.endT = tm.t + tm.L*b; nt.ticks = []; for (let j = 1; j < tm.L; j++) nt.ticks.push(tm.t + j*b); }
+        notes.push(nt);
+        if (!tm.L && d.dbl && tm.beat % 2 === 0 && r() < d.dbl && Math.abs(p.x-.5) > .15) notes.push({ t:tm.t, x:1-p.x, y:p.y, n:combo-1, c:phrase, twin:true });
+      });
+      prev = pos[pos.length-1];
+    }
+    phrase++;
+  }
+  // spacing: short gaps stay close, long gaps may jump, nothing stacks
+  let last = null;
+  const prim = notes.filter(n => !n.twin);
+  prim.forEach((nt, i) => {
+    if (last){
+      const dt = (nt.t - last.t)/b, max = dt < .75 ? .15 : dt < 1.5 ? d.jump : d.jump*1.2, min = dt < .75 ? .07 : .1;
+      let dx = nt.x-last.x, dy = nt.y-last.y, dd = Math.hypot(dx, dy);
+      if (dd > max){ nt.x = last.x + dx/dd*max; nt.y = last.y + dy/dd*max; }
+      else if (dd < min){ if (dd < 1e-3){ dx = 1; dy = 0; dd = 1; } nt.x = clamp(last.x + dx/dd*min, .04, .96); nt.y = clamp(last.y + dy/dd*min, .04, .96); }
+    }
+    if (nt.slider) buildPath(nt, prim[i+1], r);
+    if (nt.slider){ const e = nt.path.pts.at(-1); last = { x:e.x, y:e.y, t:nt.endT }; }
+    else { if (nt.endT){ delete nt.endT; delete nt.ticks; } last = nt; }
+  });
+  for (let i = 1; i < notes.length; i++) if (notes[i].twin){
+    const p = notes[i-1]; if (Math.abs(p.x-.5) < .13) p.x = p.x < .5 ? .37 : .63;
+    notes[i].x = 1-p.x; notes[i].y = p.y;
+  }
+  assignHands(notes, b, r, CROSS[opt.cross] ?? CROSS.some);
+  return notes;
+}
+
+// Which hand plays each circle, from a small body model:
+// each hand lives on its own side, can reach across the middle, and can cross over the other hand only a little.
+const CROSS = { none:0, some:.15, often:.35 };
+function assignHands(notes, b, r, cross){
+  const ACROSS = cross ? .8 : .62;      // furthest a hand reaches past the middle (field width = 1)
+  const DEPTH = .28;                    // how far one hand may go past the other: forearms touch, nothing more
+  const SPEED = 1.8;                    // field widths per second a hand can travel between its own circles
+  const pos = { L:{ x:.3, y:.5, t:-99 }, R:{ x:.7, y:.5, t:-99 } };
+  const other = h => h === 'L' ? 'R' : 'L';
+  let lastHand = 'R';
+  const span = nt => { if (!nt.slider) return [nt.x, nt.x]; let lo = 1, hi = 0; for (const p of nt.path.pts){ lo = Math.min(lo, p.x); hi = Math.max(hi, p.x); } return [lo, hi]; };
+  const recent = (p, t) => t - p.t <= 2*b + 1e-6;
+  const depth = (lo, hi, h, t) => { const o = pos[other(h)]; if (!recent(o, t)) return -1; return h === 'L' ? hi - o.x : o.x - lo; };
+  const ok = (nt, h) => {
+    const [lo, hi] = span(nt), t = nt.t;
+    if (h === 'L' ? hi > ACROSS : lo < 1 - ACROSS) return false;                     // out of reach
+    const dp = depth(lo, hi, h, t);
+    if (cross ? dp > DEPTH : dp > -.05) return false;                                 // arms tangled too deep
+    const me = pos[h], dt = t - me.t;
+    if (dt < 2 && Math.hypot(nt.x - me.x, nt.y - me.y) > SPEED*dt + .1) return false; // hand can't get there in time
+    return true;
+  };
+  const crossesWith = (nt, h) => { const [lo, hi] = span(nt); return depth(lo, hi, h, nt.t) > 0; };
+  const flip = nt => { for (const p of nt.path.pts) p.x = clamp(2*nt.x - p.x, .04, .96); };
+  const toCircle = nt => { nt.slider = false; delete nt.endT; delete nt.ticks; };
+  const place = (nt, h) => { nt.hand = h; lastHand = h; const e = nt.slider ? nt.path.pts.at(-1) : nt; pos[h] = { x:e.x, y:e.y, t: nt.slider ? nt.endT : nt.t }; };
+
+  for (let i = 0; i < notes.length; i++){
+    const nt = notes[i], nx = notes[i+1];
+    if (nt.twin) continue;
+    if (nx && nx.twin){
+      // a pair: left circle to the left hand, unless we cross the arms into an X near the middle
+      const [p, q] = nt.x < nx.x ? [nt, nx] : [nx, nt], keep = p.x;
+      const reachable = (c, h) => { const me = pos[h], dt = c.t - me.t; return dt >= 2 || Math.hypot(c.x - me.x, c.y - me.y) <= SPEED*dt + .1; };
+      const tryX = () => { const sep = .26 + r()*.06; p.x = .5 - sep/2; q.x = .5 + sep/2;
+        if (reachable(q, 'L') && reachable(p, 'R')){ place(q, 'L'); place(p, 'R'); return true; } return false; };
+      const tryStraight = () => { for (const k of [1, .75, .5, 0]){ p.x = Math.min(.37, .5 - (.5 - keep)*k); q.x = 1 - p.x;   // pull in toward the middle if needed
+        if (reachable(p, 'L') && reachable(q, 'R')){ place(p, 'L'); place(q, 'R'); return true; } } return false; };
+      const wantX = cross && r() < cross*.6;
+      if (!(wantX && tryX()) && !tryStraight() && !(cross && tryX())){ p.x = keep; q.x = 1 - keep; place(p, 'L'); place(q, 'R'); }
+      i++; continue;
+    }
+    const nat = nt.x < .43 ? 'L' : nt.x > .57 ? 'R' : lastHand, alt = other(nat);
+    let order = [nat, alt];
+    if (cross && crossesWith(nt, alt) && r() < cross) order = [alt, nat];   // sometimes cross on purpose
+    let h = order.find(hh => ok(nt, hh));
+    if (!h && nt.slider){ flip(nt); h = order.find(hh => ok(nt, hh)); if (!h){ flip(nt); toCircle(nt); h = order.find(hh => ok(nt, hh)); } }
+    if (!h){                                  // nobody can take it as placed: pull it to the natural hand's side
+      if (nt.slider) toCircle(nt);
+      h = nat; const o = pos[other(h)];
+      const edge = recent(o, nt.t) ? (h === 'L' ? o.x - .12 : o.x + .12) : .5;
+      nt.x = h === 'L' ? clamp(Math.min(nt.x, edge), .04, .62) : clamp(Math.max(nt.x, edge), .38, .96);
+    }
+    place(nt, h);
+  }
+}
+/*ENDCORE*/
+
+/* ---------- track ---------- */
+const T = { buf:null, name:'', a:null };
+let MAP = [];
+function regen(){
+  if (!T.a){ MAP = []; return; }
+  MAP = generateMap(T.a, S);
+  if (!MAP.length){ $('#mapInfo').textContent = 'Карта пустая. Проверь BPM и офсет.'; return; }
+  const span = MAP.at(-1).t - MAP[0].t || 1;
+  $('#mapInfo').innerHTML = `<b>${MAP.length}</b> кругов · <b>${(MAP.length/span).toFixed(1)}</b> в секунду · ${DIFF[S.diff].label.toLowerCase()}`;
+}
+async function loadBuffer(buf, name){
+  T.buf = buf; T.name = name; $('#trackInfo').textContent = 'Слушаю ритм…';
+  await new Promise(r => setTimeout(r, 30));
+  T.a = analyze(buf);
+  S.bpm = T.a.bpm; S.offset = Math.round(T.a.offset*1000); syncInputs();
+  const info = $('#trackInfo'); info.textContent = '';
+  const b = document.createElement('b'); b.textContent = name; info.append(b, document.createElement('br'), `${fmtTime(buf.duration)} · найдено ${T.a.bpm} BPM`);
+  $('#start').disabled = false; $('#preview').disabled = false; regen();
+}
+$('#file').onchange = async e => {
+  const f = e.target.files[0]; if (!f) return; const ctx = AC();
+  $('#trackInfo').textContent = 'Загружаю…';
+  try { const buf = await ctx.decodeAudioData(await f.arrayBuffer()); await loadBuffer(buf, f.name.replace(/\.[^.]+$/, '')); }
+  catch { $('#trackInfo').textContent = 'Не получилось прочитать файл. Подойдут mp3, ogg, wav или m4a.'; }
+};
+$('#demo').onclick = async () => { AC(); $('#trackInfo').textContent = 'Собираю демо-бит…'; await loadBuffer(await makeDemo(), 'Демо-бит'); };
+
+async function makeDemo(){
+  const sr = 44100, bpm = 124, b = 60/bpm, bars = 40, dur = .5 + bars*4*b + 1;
+  const oc = new OfflineAudioContext(2, Math.ceil(sr*dur), sr);
+  const nb = oc.createBuffer(1, sr, sr), nd = nb.getChannelData(0); for (let i = 0; i < sr; i++) nd[i] = Math.random()*2-1;
+  const out = oc.createGain(); out.gain.value = .8; out.connect(oc.destination);
+  const env = (node, t, peak, dec) => { const gn = oc.createGain(); gn.gain.setValueAtTime(.0001, t); gn.gain.exponentialRampToValueAtTime(peak, t+.004); gn.gain.exponentialRampToValueAtTime(.0001, t+dec); node.connect(gn).connect(out); };
+  const noise = (t, type, freq, peak, dec) => { const s = oc.createBufferSource(); s.buffer = nb; const f = oc.createBiquadFilter(); f.type = type; f.frequency.value = freq; s.connect(f); env(f, t, peak, dec); s.start(t, Math.random()*.5); s.stop(t+dec+.02); };
+  const tone = (t, type, fr, peak, dec, lp) => { const o = oc.createOscillator(); o.type = type; o.frequency.value = fr; let n = o; if (lp){ const f = oc.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = lp; o.connect(f); n = f; } env(n, t, peak, dec); o.start(t); o.stop(t+dec+.02); };
+  const roots = [55, 43.65, 65.41, 49], arp = [1, 1.5, 2, 2.4, 3, 2.4, 2, 1.5], pat = [1,0,1,1,0,1,0,1];
+  for (let bar = 0; bar < bars; bar++){
+    const brk = bar >= 24 && bar < 28, intro = bar < 4;
+    for (let q = 0; q < 4; q++){
+      const t = .5 + (bar*4 + q)*b;
+      if (!brk){ const o = oc.createOscillator(); o.frequency.setValueAtTime(160, t); o.frequency.exponentialRampToValueAtTime(45, t+.12); env(o, t, .95, .38); o.start(t); o.stop(t+.4); }
+      if (!intro && !brk && (q === 1 || q === 3)) noise(t, 'bandpass', 1800, .55, .2);
+      noise(t + b/2, 'highpass', 7000, brk ? .1 : .18, .05);
+      if (!intro && !brk) tone(t + b/2, 'sawtooth', roots[bar%4], .3, .22, 420);
+    }
+    if (bar >= 8 && !brk) for (let e = 0; e < 8; e++) if (pat[e]) tone(.5 + (bar*4 + e/2)*b, 'square', roots[bar%4]*4*arp[(e+bar)%8], .09, .14, 2600);
+    if (brk) tone(.5 + bar*4*b, 'triangle', roots[bar%4]*4, .12, 4*b);
+  }
+  return oc.startRendering();
+}
+
+/* ---------- rhythm controls ---------- */
+function syncInputs(){
+  $('#bpm').value = S.bpm; $('#offset').value = S.offset; $('#seed').value = S.seed; $('#point').value = S.point;
+  for (const k of ['field','lat','dim','vol','trig']) $('#'+k).value = S[k];
+  $('#cross').value = S.cross; $('#strict').checked = S.strict; $('#swap').checked = S.swap;
+  $('#trigV').textContent = S.trig < 32 ? 'туго' : S.trig > 46 ? 'легко' : 'средне';
+  $('#gunHint').hidden = $('#trigWrap').hidden = S.point !== 'gun';
+  $('#fieldV').textContent = S.field + '%'; $('#latV').textContent = S.lat + ' мс'; $('#dimV').textContent = S.dim + '%'; $('#volV').textContent = S.vol + '%';
+  document.querySelectorAll('#diff button').forEach(btn => btn.setAttribute('aria-pressed', btn.dataset.v === S.diff));
+}
+function setBpm(v){ S.bpm = clamp(Math.round(v*2)/2, 40, 300); syncInputs(); regen(); }
+$('#bpm').onchange = e => setBpm(+e.target.value || 120);
+$('#offset').onchange = e => { S.offset = Math.round(+e.target.value || 0); syncInputs(); regen(); };
+$('#half').onclick = () => setBpm(S.bpm/2);
+$('#dbl').onclick = () => setBpm(S.bpm*2);
+$('#auto').onclick = () => { if (!T.a) return; S.bpm = T.a.bpm; S.offset = Math.round(T.a.offset*1000); syncInputs(); regen(); };
+let taps = [];
+$('#tap').onclick = () => {
+  const t = performance.now(); if (taps.length && t - taps.at(-1) > 2000) taps = [];
+  taps.push(t); if (taps.length > 12) taps.shift();
+  if (taps.length >= 4) setBpm(60000 / ((taps.at(-1) - taps[0]) / (taps.length-1)));
+  $('#tap').textContent = taps.length < 4 ? `Тап ${taps.length}/4` : 'Тап';
+};
+document.querySelectorAll('#diff button').forEach(btn => btn.onclick = () => { S.diff = btn.dataset.v; save(); syncInputs(); regen(); });
+$('#seed').onchange = e => { S.seed = e.target.value.trim() || 'neon'; save(); syncInputs(); regen(); };
+$('#reroll').onclick = () => { const w = ['neon','tide','orbit','ember','prism','drift','pulse','comet','echo','flux','nova','rift']; S.seed = w[Math.floor(Math.random()*w.length)] + Math.floor(Math.random()*100); save(); syncInputs(); regen(); };
+$('#cross').onchange = e => { S.cross = e.target.value; save(); regen(); };
+$('#point').onchange = e => { S.point = e.target.value; save(); syncInputs(); };
+for (const k of ['strict','swap']) $('#'+k).onchange = e => { S[k] = e.target.checked; save(); };
+for (const k of ['field','lat','dim','vol','trig']) $('#'+k).oninput = e => { S[k] = +e.target.value; save(); syncInputs(); if (k === 'vol' && master) master.gain.value = (S.vol/100) ** 1.5; };
+
+/* metronome preview */
+let PV = null;
+function click(at, acc){ const o = actx.createOscillator(), gn = actx.createGain(); o.frequency.value = acc ? 1760 : 1100; gn.gain.setValueAtTime(.0001, at); gn.gain.exponentialRampToValueAtTime(.5, at+.002); gn.gain.exponentialRampToValueAtTime(.0001, at+.06); o.connect(gn).connect(master); o.start(at); o.stop(at+.07); return o; }
+function stopPreview(){ if (!PV) return; for (const n of PV.nodes) try { n.stop(); } catch {} clearTimeout(PV.timer); PV = null; $('#preview').textContent = 'Проверить с метрономом'; }
+$('#preview').onclick = () => {
+  if (PV){ stopPreview(); return; } if (!T.buf) return;
+  const ctx = AC(); ctx.resume();
+  const from = Math.max(0, T.a.start), t0 = ctx.currentTime + .15, b = 60/S.bpm, off = S.offset/1000;
+  const src = ctx.createBufferSource(); src.buffer = T.buf; src.connect(master); src.start(t0, from);
+  const nodes = [src];
+  for (let k = Math.ceil((from-off)/b); off + k*b < from + 12; k++) nodes.push(click(t0 + off + k*b - from, ((k%4)+4)%4 === 0));
+  PV = { nodes, t0, from, timer: setTimeout(stopPreview, 12500) };
+  $('#preview').textContent = 'Стоп';
+};
+
+/* ---------- camera + hands ---------- */
+const CDN = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14';
+const MODEL = 'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task';
+let camOK = false, landmarker = null, lastVT = -1;
+$('#cam').onclick = async () => {
+  $('#cam').disabled = true; $('#camInfo').textContent = 'Запрашиваю доступ к камере…';
+  try {
+    const st = await navigator.mediaDevices.getUserMedia({ video:{ width:{ideal:960}, height:{ideal:540}, facingMode:'user' }, audio:false });
+    video.srcObject = st; await video.play(); camOK = true;
+  } catch (e){
+    $('#cam').disabled = false;
+    $('#camInfo').textContent = `Камера недоступна (${e.name || 'ошибка'}). Разреши доступ в адресной строке или играй мышкой.`; return;
+  }
+  $('#camInfo').textContent = 'Загружаю модель рук, это пара секунд…';
+  try {
+    const V = await import(CDN + '/vision_bundle.mjs');
+    const fs = await V.FilesetResolver.forVisionTasks(CDN + '/wasm');
+    const opts = d => ({ baseOptions:{ modelAssetPath:MODEL, delegate:d }, runningMode:'VIDEO', numHands:2, minHandDetectionConfidence:.5, minHandPresenceConfidence:.5, minTrackingConfidence:.5 });
+    try { landmarker = await V.HandLandmarker.createFromOptions(fs, opts('GPU')); } catch { landmarker = await V.HandLandmarker.createFromOptions(fs, opts('CPU')); }
+    $('#cam').hidden = true; $('#camInfo').textContent = 'Готово. Подними руку, и появится курсор.';
+  } catch {
+    $('#cam').disabled = false; $('#camInfo').textContent = 'Модель рук не загрузилась. Нужен интернет. Пока можно играть мышкой.';
+  }
+};
+
+const hands = new Map(); let handId = 0;
+const mouse = { x:0, y:0, seen:-1e9, mouse:true, trail:[], side:'any' };
+cv.addEventListener('pointermove', e => { mouse.x = e.clientX; mouse.y = e.clientY; mouse.seen = performance.now(); });
+// Gun mode: every trigger pull becomes a shot with its own timestamp and aim point
+const shots = [];
+const audioNow = () => actx ? actx.currentTime : 0;
+function fire(x, y, side){
+  shots.push({ x, y, at: audioNow(), side });
+  G.fx.push({ x, y, t: performance.now(), shot: true });
+  if (actx){ const t = actx.currentTime, o = actx.createOscillator(), gn = actx.createGain(); o.type = 'square'; o.frequency.setValueAtTime(320, t); o.frequency.exponentialRampToValueAtTime(70, t+.07);
+    gn.gain.setValueAtTime(.07, t); gn.gain.exponentialRampToValueAtTime(.0001, t+.09); o.connect(gn).connect(master); o.start(t); o.stop(t+.1); }
+}
+cv.addEventListener('pointerdown', e => { if (S.point !== 'gun') return; AC(); mouse.x = e.clientX; mouse.y = e.clientY; mouse.seen = performance.now(); fire(mouse.x, mouse.y, 'any'); });
+const d3 = (a, b) => Math.hypot(a.x - b.x, a.y - b.y, (a.z || 0) - (b.z || 0));
+function readTrigger(h, wl){
+  const scale = d3(wl[0], wl[9]) || 1;
+  const ratio = Math.min(d3(wl[4], wl[5]), d3(wl[4], wl[6])) / scale;
+  const indexOut = d3(wl[8], wl[0]) > d3(wl[6], wl[0]) * 1.1;
+  h.ratio = h.ratio == null ? ratio : h.ratio + (ratio - h.ratio)*.6;
+  h.gun = indexOut;
+  const fireT = S.trig/100, cockT = fireT + .15;
+  if (h.ratio > cockT){ h.cocked = true; h.aim = { x:h.x, y:h.y }; }
+  else if (h.cocked && h.ratio < fireT){ h.cocked = false; if (indexOut){ const a = h.aim || h; fire(a.x, a.y, h.side); } }
+}
+function videoRect(){ const vw = video.videoWidth || 16, vh = video.videoHeight || 9, s = Math.max(W/vw, H/vh), dw = vw*s, dh = vh*s; return { ox:(W-dw)/2, oy:(H-dh)/2, dw, dh }; }
+function updateHands(){
+  const tnow = performance.now();
+  if (landmarker && camOK && video.readyState >= 2 && video.currentTime !== lastVT){
+    lastVT = video.currentTime; let res = null;
+    try { res = landmarker.detectForVideo(video, tnow); } catch {}
+    if (res){
+      const R = videoRect(), hd = res.handednesses || res.handedness || [];
+      const dets = (res.landmarks || []).map((lm, i) => {
+        const cat = hd[i] && hd[i][0], lab = cat ? cat.categoryName : '', sc = cat ? cat.score : .5;
+        // MediaPipe labels hands as if the frame were a mirrored selfie; ours is raw, so its "Left" is the player's right hand
+        let pr = lab === 'Left' ? sc : lab === 'Right' ? 1 - sc : .5; if (S.swap) pr = 1 - pr;
+        const p = S.point === 'palm' ? { x:(lm[0].x+lm[5].x+lm[9].x+lm[17].x)/4, y:(lm[0].y+lm[5].y+lm[9].y+lm[17].y)/4 } : lm[8];
+        return { lm, wl: (res.worldLandmarks || [])[i] || lm, sx: W - (R.ox + p.x*R.dw), sy: R.oy + p.y*R.dh, pr };
+      });
+      // keep each tracked hand attached to the nearest detection, so a flickering label can't swap them mid-song
+      // keep each tracked hand attached to its detection; when arms cross, the left/right label decides, not just distance
+      const free = [...hands.values()], diag = Math.hypot(W, H);
+      const cost = (h, d) => Math.hypot(h.x - d.sx, h.y - d.sy)/diag + .6*Math.abs(h.pr - d.pr);
+      let pairing = null;
+      if (dets.length === 2 && free.length === 2){
+        const straight = cost(free[0], dets[0]) + cost(free[1], dets[1]), swapped = cost(free[0], dets[1]) + cost(free[1], dets[0]);
+        pairing = swapped < straight ? [free[1], free[0]] : [free[0], free[1]];
+      }
+      dets.forEach((d, di) => {
+        let best = null;
+        if (pairing) best = pairing[di];
+        else {
+          let bd = Math.max(W, H)*.35;
+          for (const h of free){ const dd = Math.hypot(h.x - d.sx, h.y - d.sy); if (dd < bd){ bd = dd; best = h; } }
+          if (best) free.splice(free.indexOf(best), 1);
+        }
+        if (!best){ best = { id: ++handId, x:d.sx, y:d.sy, trail:[], pr:d.pr }; hands.set(best.id, best); }
+        d.h = best; best.pr = best.pr*.75 + d.pr*.25;
+        const jump = Math.hypot(d.sx - best.x, d.sy - best.y) > diag*.15;   // identity fixed after a crossing: snap, don't glide
+        const k = jump ? 1 : S.point === 'gun' ? .5 : .7;                   // a steadier crosshair for aiming
+        if (jump) best.trail = [];
+        best.x += (d.sx - best.x)*k; best.y += (d.sy - best.y)*k; best.seen = tnow;
+      });
+      const tracked = dets.map(d => d.h);
+      if (tracked.length === 2){ const [a, b] = tracked; a.side = a.pr >= b.pr ? 'R' : 'L'; b.side = a.side === 'R' ? 'L' : 'R'; }
+      else for (const h of tracked) h.side = h.pr >= .5 ? 'R' : 'L';
+      if (S.point === 'gun') for (const d of dets) readTrigger(d.h, d.wl);
+    }
+  }
+  for (const [k, h] of hands) if (tnow - h.seen > 200) hands.delete(k);
+}
+function cursors(){
+  const list = [...hands.values()];
+  if (performance.now() - mouse.seen < 1500 || (!landmarker && G.mode === 'play')) list.push(mouse);
+  return list;
+}
+
+/* ---------- game ---------- */
+const HAND_COL = { L:'#ff4fa3', R:'#47e1ff' };
+const noteCol = n => HAND_COL[n.hand] || '#ff4fa3';
+const canHit = (side, n) => !S.strict || side === 'any' || side === n.hand;
+const G = { mode:'menu', t0:0, src:null, notes:[], i0:0, score:0, combo:0, maxCombo:0, c300:0, c100:0, c50:0, miss:0, fx:[], offs:[], endT:0, noHand:0 };
+const songNow = () => actx ? actx.currentTime - G.t0 : 0;
+function field(){ const f = S.field/100, fw = W*f, fh = H*f*.86; return { x0:(W-fw)/2, y0:(H-fh)/2 + H*.03, fw, fh }; }
+function toScreen(n, F){ return { x: F.x0 + n.x*F.fw, y: F.y0 + n.y*F.fh }; }
+const radius = () => Math.min(W, H) * DIFF[S.diff].cs;
+
+function stopSong(){ if (G.src){ try { G.src.stop(); } catch {} G.src = null; } }
+function startGame(){
+  if (!T.buf) return; const ctx = AC(); ctx.resume(); stopPreview(); regen();
+  if (!MAP.length){ toast('Карта пустая. Проверь BPM и офсет.'); return; }
+  stopSong();
+  Object.assign(G, { notes: MAP.map(n => ({ ...n, res:0 })), i0:0, score:0, combo:0, maxCombo:0, c300:0, c100:0, c50:0, miss:0, fx:[], offs:[], noHand:0 });
+  const src = ctx.createBufferSource(); src.buffer = T.buf; src.connect(master);
+  G.t0 = ctx.currentTime + 2; src.start(G.t0); G.src = src;
+  G.endT = Math.min(T.buf.duration, G.notes.at(-1).t + 2.5);
+  G.mode = 'play'; $('#menu').hidden = true; $('#pause').hidden = true; $('#results').hidden = true;
+}
+function toMenu(){ stopSong(); if (actx) actx.resume(); G.mode = 'menu'; $('#pause').hidden = true; $('#results').hidden = true; $('#menu').hidden = false; }
+function pauseGame(){ if (G.mode !== 'play') return; actx.suspend(); G.mode = 'pause'; $('#pause').hidden = false; }
+function resumeGame(){ if (G.mode !== 'pause') return; $('#pause').hidden = true; actx.resume(); G.mode = 'play'; }
+$('#start').onclick = startGame; $('#resume').onclick = resumeGame;
+$('#retry1').onclick = () => { actx.resume(); startGame(); }; $('#retry2').onclick = startGame;
+$('#tomenu1').onclick = toMenu; $('#tomenu2').onclick = toMenu;
+addEventListener('keydown', e => {
+  if (e.target.matches('input,select')) return;
+  if (e.key === 'Escape' || e.key === 'p' || e.key === 'з'){ if (G.mode === 'play') pauseGame(); else if (G.mode === 'pause') resumeGame(); }
+});
+document.addEventListener('visibilitychange', () => { if (document.hidden) pauseGame(); });
+
+function hitSound(){ const t = actx.currentTime, o = actx.createOscillator(), gn = actx.createGain(); o.type = 'triangle'; o.frequency.setValueAtTime(1400, t); o.frequency.exponentialRampToValueAtTime(500, t+.05); gn.gain.setValueAtTime(.18, t); gn.gain.exponentialRampToValueAtTime(.0001, t+.08); o.connect(gn).connect(master); o.start(t); o.stop(t+.09); }
+function judge(n, v, off, F){
+  n.res = v || -1; const p = toScreen(n, F);
+  G.fx.push({ x:p.x, y:p.y, t:performance.now(), v, c:noteCol(n) });
+  if (!v){ G.miss++; G.combo = 0; return; }
+  G[v === 300 ? 'c300' : v === 100 ? 'c100' : 'c50']++;
+  G.score += Math.round(v * (1 + Math.min(G.combo, 100)/25));
+  G.combo++; G.maxCombo = Math.max(G.maxCombo, G.combo); G.offs.push(off*1000); hitSound();
+}
+function tickSound(hi){ const t = actx.currentTime, o = actx.createOscillator(), gn = actx.createGain(); o.type = 'sine'; o.frequency.value = hi ? 1900 : 1500; gn.gain.setValueAtTime(.09, t); gn.gain.exponentialRampToValueAtTime(.0001, t+.05); o.connect(gn).connect(master); o.start(t); o.stop(t+.06); }
+const bump = () => { G.combo++; G.maxCombo = Math.max(G.maxCombo, G.combo); };
+function sliderHead(n, v, off, F){
+  n.head = v; const p = toScreen(n, F);
+  G.fx.push({ x:p.x, y:p.y, t:performance.now(), v, c:noteCol(n), small:true });
+  if (!v){ G.combo = 0; return; }
+  G.score += Math.round(30 * (1 + Math.min(G.combo, 100)/25)); bump(); G.offs.push(off*1000); hitSound();
+}
+function updateSlider(n, tj, R, F, cur){
+  const u = (tj - n.t)/(n.endT - n.t), bp = toScreen(pathAt(n, u), F);
+  const reach = R * (n.following ? 2.4 : 1.6);   // follow ring grows once you have the ball
+  n.following = tj >= n.t && cur.some(c => canHit(c.side, n) && Math.hypot(c.x - bp.x, c.y - bp.y) <= reach);
+  n.ti = n.ti || 0; n.tok = n.tok || 0;
+  while (n.ti < n.ticks.length && tj >= n.ticks[n.ti]){
+    if (n.following){ n.tok++; G.score += 10; bump(); tickSound(false); } else G.combo = 0;
+    n.ti++;
+  }
+  if (tj < n.endT) return;
+  const endOk = n.following, parts = 2 + n.ticks.length, got = (n.head > 0 ? 1 : 0) + n.tok + (endOk ? 1 : 0);
+  const v = got === parts ? 300 : got >= parts/2 ? 100 : got > 0 ? 50 : 0;
+  n.res = v || -1;
+  const ep = toScreen(n.path.pts.at(-1), F);
+  G.fx.push({ x:ep.x, y:ep.y, t:performance.now(), v, c:noteCol(n) });
+  if (endOk){ bump(); tickSound(true); } else G.combo = 0;
+  if (!v){ G.miss++; return; }
+  G[v === 300 ? 'c300' : v === 100 ? 'c100' : 'c50']++;
+  G.score += Math.round(v * (1 + Math.min(G.combo, 100)/25));
+}
+function updateGame(){
+  const t = songNow(), tj = t - S.lat/1000, d = DIFF[S.diff], w50 = .24*d.win, w100 = .16*d.win, w300 = .09*d.win;
+  const F = field(), R = radius(), cur = cursors(), gun = S.point === 'gun';
+  const grade = off => { const a = Math.abs(off); return a <= w300 ? 300 : a <= w100 ? 100 : 50; };
+  while (G.i0 < G.notes.length && G.notes[G.i0].res) G.i0++;
+
+  // Shots: only the earliest waiting circle (and its same-time partner) can take a bullet
+  const waiting = n => !n.res && (n.slider ? n.head === undefined : true);
+  for (const sh of shots.splice(0)){
+    const ts = sh.at - G.t0 - (sh.side === 'any' ? 0 : S.lat/1000);
+    let first = null;
+    for (let i = G.i0; i < G.notes.length; i++){ const n = G.notes[i]; if (waiting(n) && canHit(sh.side, n) && ts - n.t <= w50){ first = n; break; } }
+    if (!first || first.t - ts > .4*d.win) continue;          // too early to count for anything
+    for (let i = G.i0; i < G.notes.length; i++){
+      const n = G.notes[i]; if (n.t - first.t > .005) break; if (n.t < first.t - .005 || !waiting(n) || !canHit(sh.side, n)) continue;
+      const p = toScreen(n, F); if (Math.hypot(sh.x - p.x, sh.y - p.y) > R*1.25) continue;
+      const off = ts - n.t;
+      if (off < -w50){ n.slider ? sliderHead(n, 0, 0, F) : judge(n, 0, 0, F); }   // shot way too early: miss, like a mistimed click
+      else n.slider ? sliderHead(n, grade(off), off, F) : judge(n, grade(off), off, F);
+      break;
+    }
+  }
+
+  for (let i = G.i0; i < G.notes.length; i++){
+    const n = G.notes[i]; if (n.res) continue; if (n.t - tj > w50) break;
+    if (n.slider){
+      if (n.head === undefined){
+        if (tj - n.t > w50) sliderHead(n, 0, 0, F);
+        else if (!gun){ const p = toScreen(n, F); if (cur.some(c => canHit(c.side, n) && Math.hypot(c.x-p.x, c.y-p.y) <= R*1.2)) sliderHead(n, grade(tj - n.t), tj - n.t, F); }
+      }
+      updateSlider(n, tj, R, F, cur);
+      continue;
+    }
+    if (tj - n.t > w50){ judge(n, 0, 0, F); continue; }
+    if (gun) continue;
+    const p = toScreen(n, F);
+    for (const c of cur) if (canHit(c.side, n) && Math.hypot(c.x-p.x, c.y-p.y) <= R*1.2){ const off = tj - n.t; judge(n, grade(off), off, F); break; }
+  }
+  G.noHand = (landmarker && !hands.size) ? G.noHand + 1 : 0;
+  if (t > G.endT) finish();
+}
+function accuracy(){ const tot = G.c300 + G.c100 + G.c50 + G.miss; return tot ? (300*G.c300 + 100*G.c100 + 50*G.c50) / (300*tot) : 1; }
+function finish(){
+  G.mode = 'results'; stopSong();
+  const acc = accuracy(), grade = acc === 1 ? 'SS' : acc > .95 && !G.miss ? 'S' : acc > .9 ? 'A' : acc > .8 ? 'B' : acc > .7 ? 'C' : 'D';
+  $('#rGrade').textContent = grade; $('#rGrade').style.color = { SS:'var(--amber)', S:'var(--amber)', A:'#7dffb0', B:'var(--cyan)', C:'var(--violet)', D:'var(--red)' }[grade];
+  $('#rScore').textContent = G.score.toLocaleString('ru-RU'); $('#rAcc').textContent = `${(acc*100).toFixed(2)}% · макс. комбо ${G.maxCombo}`;
+  $('#r300').textContent = G.c300; $('#r100').textContent = G.c100; $('#r50').textContent = G.c50; $('#rMiss').textContent = G.miss;
+  const mean = G.offs.length >= 8 ? G.offs.reduce((a, b) => a + b, 0) / G.offs.length : 0;
+  if (Math.abs(mean) > 25){
+    const sugg = clamp(Math.round((S.lat + mean)/5)*5, 0, 250);
+    $('#rCalibText').textContent = `В среднем ты касаешься на ${Math.round(Math.abs(mean))} мс ${mean > 0 ? 'позже' : 'раньше'}. Задержка ${sugg} мс это выровняет.`;
+    $('#rApply').onclick = () => { S.lat = sugg; save(); syncInputs(); $('#rCalib').hidden = true; toast(`Задержка камеры: ${sugg} мс`); };
+    $('#rCalib').hidden = false;
+  } else $('#rCalib').hidden = true;
+  $('#results').hidden = false;
+}
+
+/* ---------- drawing ---------- */
+function drawVideo(){
+  g.fillStyle = '#0f0b18'; g.fillRect(0, 0, W, H);
+  if (camOK && video.readyState >= 2 && S.dim > 0){
+    const R = videoRect(); g.save(); g.globalAlpha = S.dim/100; g.translate(W, 0); g.scale(-1, 1);
+    g.drawImage(video, R.ox, R.oy, R.dw, R.dh); g.restore();
+  }
+  const vg = g.createRadialGradient(W/2, H/2, Math.min(W, H)*.3, W/2, H/2, Math.max(W, H)*.75);
+  vg.addColorStop(0, 'rgba(15,11,24,0)'); vg.addColorStop(1, 'rgba(15,11,24,.75)'); g.fillStyle = vg; g.fillRect(0, 0, W, H);
+}
+function drawCursors(){
+  const now = performance.now();
+  for (const c of cursors()){
+    c.trail = c.trail || []; c.trail.push({ x:c.x, y:c.y }); if (c.trail.length > 10) c.trail.shift();
+    const col = c.mouse ? '#f4effc' : HAND_COL[c.side] || '#f4effc';
+    g.strokeStyle = col; g.lineCap = 'round';
+    for (let i = 1; i < c.trail.length; i++){ g.globalAlpha = i/c.trail.length*.5; g.lineWidth = 2 + i*.8; g.beginPath(); g.moveTo(c.trail[i-1].x, c.trail[i-1].y); g.lineTo(c.trail[i].x, c.trail[i].y); g.stroke(); }
+    g.globalAlpha = 1;
+    if (S.point === 'gun'){
+      // crosshair; the outer arc fills as the thumb rises and turns solid when the trigger is cocked
+      const ready = c.mouse || c.cocked, lvl = c.mouse ? 1 : clamp(((c.ratio ?? 0) - S.trig/100)/.3, 0, 1);
+      g.globalAlpha = c.mouse || c.gun ? 1 : .45; g.strokeStyle = col; g.lineWidth = 3; g.lineCap = 'round';
+      g.beginPath(); g.arc(c.x, c.y, 16, 0, TAU); g.stroke();
+      for (let k = 0; k < 4; k++){ const a = k*Math.PI/2; g.beginPath(); g.moveTo(c.x + Math.cos(a)*9, c.y + Math.sin(a)*9); g.lineTo(c.x + Math.cos(a)*22, c.y + Math.sin(a)*22); g.stroke(); }
+      g.strokeStyle = ready ? '#ffffff' : col; g.lineWidth = ready ? 4 : 2.5;
+      g.beginPath(); g.arc(c.x, c.y, 28, -Math.PI/2, -Math.PI/2 + TAU*lvl); g.stroke();
+      g.fillStyle = '#fff'; g.beginPath(); g.arc(c.x, c.y, 3, 0, TAU); g.fill();
+      g.globalAlpha = 1;
+    } else {
+      const gl = g.createRadialGradient(c.x, c.y, 0, c.x, c.y, 34); gl.addColorStop(0, col + 'aa'); gl.addColorStop(1, col + '00');
+      g.fillStyle = gl; g.beginPath(); g.arc(c.x, c.y, 34, 0, TAU); g.fill();
+      g.fillStyle = '#fff'; g.beginPath(); g.arc(c.x, c.y, 7, 0, TAU); g.fill();
+      g.strokeStyle = col; g.lineWidth = 3; g.stroke();
+    }
+    if (!c.mouse && c.side){   // which hand the tracker thinks this is
+      g.fillStyle = col; g.font = '700 13px Unbounded, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+      g.fillText(c.side === 'L' ? 'Л' : 'П', c.x + 30, c.y - 30);
+    }
+  }
+  for (const c of [mouse]) if (now - c.seen > 1500) c.trail = [];
+  // muzzle flashes
+  G.fx = G.fx.filter(f => !f.shot || now - f.t < 260);
+  for (const f of G.fx){ if (!f.shot) continue; const k = (now - f.t)/260;
+    g.globalAlpha = 1 - k; g.strokeStyle = '#ffffff'; g.lineWidth = 3; g.beginPath(); g.arc(f.x, f.y, 10 + k*34, 0, TAU); g.stroke();
+    g.fillStyle = '#ffffff'; g.globalAlpha = (1 - k)*.6; g.beginPath(); g.arc(f.x, f.y, 12*(1 - k), 0, TAU); g.fill(); }
+  g.globalAlpha = 1;
+}
+function drawField(F, alpha){
+  g.save(); g.globalAlpha = alpha; g.setLineDash([6, 8]); g.strokeStyle = '#f4effc'; g.lineWidth = 1.5;
+  const R = radius(); g.strokeRect(F.x0 - R, F.y0 - R, F.fw + 2*R, F.fh + 2*R); g.restore();
+}
+function drawMenuScene(){
+  const F = field(); drawField(F, .28);
+  const panelW = $('#menu').hidden ? 0 : Math.min(392, W);
+  const cx = panelW + (W - panelW)/2, cy = H/2;
+  if (PV && actx){
+    const tt = actx.currentTime - PV.t0 + PV.from, b = 60/S.bpm, ph = (tt - S.offset/1000)/b, fr = ph - Math.floor(ph);
+    const beat = ((Math.floor(ph) % 4) + 4) % 4, R = 70;
+    g.globalAlpha = 1 - fr*.7; g.fillStyle = beat === 0 ? '#ff4fa3' : '#47e1ff';
+    g.beginPath(); g.arc(cx, cy, R*(1 - fr*.25), 0, TAU); g.fill();
+    g.globalAlpha = 1; g.strokeStyle = '#fff'; g.lineWidth = 4; g.stroke();
+    g.fillStyle = '#fff'; g.font = '800 34px Unbounded, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(beat + 1, cx, cy + 2);
+  } else if (W - panelW > 260){
+    g.fillStyle = 'rgba(244,239,252,.5)'; g.font = '500 14px Onest, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillText(camOK ? (hands.size ? (S.point === 'gun' ? 'Взведи курок большим пальцем и опусти, должен прозвучать выстрел' : `Рук в кадре: ${hands.size}`) : 'Покажи руку камере') : 'Пунктир показывает, где будут появляться круги', cx, H - 40);
+  }
+}
+function drawNote(n, t, R, F, ar){
+  const dt = n.t - t; const p = toScreen(n, F), col = noteCol(n);
+  const fade = dt > 0 ? clamp((ar - dt)/(ar*.35), 0, 1) : clamp(1 + dt/.25, 0, 1);
+  g.globalAlpha = fade;
+  const gr = g.createRadialGradient(p.x - R*.3, p.y - R*.35, R*.1, p.x, p.y, R);
+  gr.addColorStop(0, col); gr.addColorStop(1, col + '88');
+  g.fillStyle = gr; g.beginPath(); g.arc(p.x, p.y, R, 0, TAU); g.fill();
+  g.lineWidth = Math.max(3, R*.07); g.strokeStyle = '#fff'; g.stroke();
+  g.fillStyle = '#fff'; g.font = `800 ${Math.round(R*.72)}px Unbounded, sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillText(n.n, p.x, p.y + R*.04);
+  if (dt > 0){ const ap = 1 + 2.4*dt/ar; g.lineWidth = 3; g.strokeStyle = col; g.beginPath(); g.arc(p.x, p.y, R*ap, 0, TAU); g.stroke(); }
+  g.globalAlpha = 1;
+}
+function drawSlider(n, t, R, F, ar){
+  const dt = n.t - t, col = noteCol(n);
+  const fade = dt > 0 ? clamp((ar - dt)/(ar*.35), 0, 1) : clamp(1 - (t - n.endT)/.2, 0, 1);
+  const pts = n.path.pts.map(p => toScreen(p, F));
+  const trace = () => { g.beginPath(); g.moveTo(pts[0].x, pts[0].y); for (let i = 1; i < pts.length; i++) g.lineTo(pts[i].x, pts[i].y); };
+  g.save(); g.lineCap = 'round'; g.lineJoin = 'round';
+  g.globalAlpha = fade*.95; trace(); g.lineWidth = 2*R + Math.max(6, R*.14); g.strokeStyle = '#ffffff'; g.stroke();
+  g.globalAlpha = fade; trace(); g.lineWidth = 2*R - Math.max(2, R*.04); g.strokeStyle = '#1a1429'; g.stroke();
+  g.globalAlpha = fade*.4; g.strokeStyle = col; g.stroke();
+  g.restore();
+  // end cap and beat ticks
+  const e = pts.at(-1); g.globalAlpha = fade*.7; g.lineWidth = 3; g.strokeStyle = '#ffffff';
+  g.beginPath(); g.arc(e.x, e.y, R*.92, 0, TAU); g.stroke();
+  g.fillStyle = '#ffffff';
+  for (const tk of n.ticks){ if (tk <= t) continue; const p = toScreen(pathAt(n, (tk - n.t)/(n.endT - n.t)), F); g.beginPath(); g.arc(p.x, p.y, R*.14, 0, TAU); g.fill(); }
+  g.globalAlpha = 1;
+  // head waits like a normal circle until it is touched or missed
+  if (n.head === undefined && dt > -.3) drawNote(n, t, R, F, ar);
+  // the ball you follow
+  if (t >= n.t){
+    const b = toScreen(pathAt(n, (t - n.t)/(n.endT - n.t)), F);
+    g.globalAlpha = fade;
+    if (n.following){ g.lineWidth = 3; g.strokeStyle = col; g.beginPath(); g.arc(b.x, b.y, R*2.4, 0, TAU); g.stroke();
+      g.globalAlpha = fade*.12; g.fillStyle = col; g.fill(); g.globalAlpha = fade; }
+    g.fillStyle = col; g.beginPath(); g.arc(b.x, b.y, R*.8, 0, TAU); g.fill();
+    g.lineWidth = Math.max(3, R*.08); g.strokeStyle = '#ffffff'; g.stroke();
+    g.globalAlpha = 1;
+  }
+}
+function drawGame(){
+  const t = G.mode === 'play' || G.mode === 'pause' ? songNow() : 0, F = field(), R = radius(), ar = DIFF[S.diff].ar;
+  const vis = [];
+  for (let i = G.i0; i < G.notes.length; i++){ const n = G.notes[i]; if (n.t - t > ar) break; if (!n.res) vis.push(n); }
+  // follow points between consecutive circles of one combo
+  g.save(); g.setLineDash([2, 10]); g.lineCap = 'round'; g.lineWidth = 3;
+  for (let i = 1; i < vis.length; i++){
+    const a = vis[i-1], b = vis[i]; if (a.c !== b.c || a.hand !== b.hand || b.twin || a.t === b.t) continue;
+    const pa = toScreen(a.slider ? a.path.pts.at(-1) : a, F), pb = toScreen(b, F), d = Math.hypot(pb.x-pa.x, pb.y-pa.y); if (d < R*2.4) continue;
+    const ux = (pb.x-pa.x)/d, uy = (pb.y-pa.y)/d;
+    g.globalAlpha = .35*clamp((ar - (b.t - t))/(ar*.5), 0, 1); g.strokeStyle = '#f4effc';
+    g.beginPath(); g.moveTo(pa.x + ux*R*1.2, pa.y + uy*R*1.2); g.lineTo(pb.x - ux*R*1.2, pb.y - uy*R*1.2); g.stroke();
+  }
+  g.restore();
+  for (let i = vis.length - 1; i >= 0; i--) (vis[i].slider ? drawSlider : drawNote)(vis[i], t, R, F, ar);
+
+  // hit effects
+  const now = performance.now();
+  G.fx = G.fx.filter(f => f.shot || now - f.t < 500);
+  for (const f of G.fx){
+    if (f.shot) continue;
+    const k = (now - f.t)/500; g.globalAlpha = 1 - k;
+    if (f.small){
+      if (f.v){ g.strokeStyle = f.c; g.lineWidth = 3*(1-k) + 1; g.beginPath(); g.arc(f.x, f.y, R*(1 + k*.5), 0, TAU); g.stroke(); }
+      else { g.strokeStyle = '#ff5c6c'; g.lineWidth = 4; g.beginPath(); g.arc(f.x, f.y, R*.5, 0, TAU); g.stroke(); }
+    } else if (f.v){
+      g.strokeStyle = f.c; g.lineWidth = 4*(1-k) + 1; g.beginPath(); g.arc(f.x, f.y, R*(1 + k*.6), 0, TAU); g.stroke();
+      g.fillStyle = f.v === 300 ? '#47e1ff' : f.v === 100 ? '#7dffb0' : '#ffc24a';
+      g.font = `700 ${Math.round(R*.5)}px "JetBrains Mono", monospace`; g.textAlign = 'center'; g.textBaseline = 'middle';
+      g.fillText(f.v, f.x, f.y - R*(1.1 + k*.4));
+    } else {
+      const s = R*.45; g.strokeStyle = '#ff5c6c'; g.lineWidth = 6; g.lineCap = 'round';
+      g.beginPath(); g.moveTo(f.x - s, f.y - s + k*20); g.lineTo(f.x + s, f.y + s + k*20); g.moveTo(f.x + s, f.y - s + k*20); g.lineTo(f.x - s, f.y + s + k*20); g.stroke();
+    }
+  }
+  g.globalAlpha = 1;
+
+  // HUD
+  const pad = 22;
+  g.fillStyle = 'rgba(244,239,252,.12)'; g.fillRect(0, 0, W, 4);
+  g.fillStyle = '#ff4fa3'; g.fillRect(0, 0, W*clamp(t/G.endT, 0, 1), 4);
+  g.textBaseline = 'top'; g.textAlign = 'right'; g.fillStyle = '#f4effc';
+  g.font = '700 34px "JetBrains Mono", monospace'; g.fillText(String(G.score).padStart(8, '0'), W - pad, pad);
+  g.font = '500 16px "JetBrains Mono", monospace'; g.fillStyle = 'rgba(244,239,252,.7)'; g.fillText((accuracy()*100).toFixed(2) + '%', W - pad, pad + 44);
+  g.textAlign = 'left'; g.font = '500 13px Onest, sans-serif'; g.fillText(`${T.name} · ${S.bpm} BPM · ${DIFF[S.diff].label}`, pad, pad);
+  if (G.combo > 1){ g.textBaseline = 'bottom'; g.fillStyle = '#f4effc'; g.font = '800 46px Unbounded, sans-serif'; g.fillText(G.combo + '×', pad, H - pad); }
+  g.textAlign = 'center'; g.textBaseline = 'middle';
+  if (t < 0){ g.fillStyle = '#f4effc'; g.font = '700 26px Unbounded, sans-serif'; g.fillText(Math.ceil(-t) > 0 ? `Приготовься · ${Math.ceil(-t)}` : '', W/2, H*.12); }
+  if (G.noHand > 60){ g.fillStyle = '#ffc24a'; g.font = '600 16px Onest, sans-serif'; g.fillText('Рук не видно. Отойди немного от камеры или добавь света.', W/2, H - 34); }
+}
+
+function frame(){
+  requestAnimationFrame(frame);
+  updateHands(); drawVideo();
+  if (G.mode === 'play') updateGame(); else shots.length = 0;
+  if (G.mode === 'play' || G.mode === 'pause') drawGame(); else if (G.mode === 'menu') drawMenuScene();
+  drawCursors();
+}
+syncInputs();
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
